@@ -16,13 +16,12 @@ class Piece:
         self.moves: List[Move] = []
         self.moved = False
 
-    # def show_moves_debug(self, comment: str):
-    #     if self.moves:
-    #         for move in self.moves:
-    #             move.show(self.name, comment)
-    #     else:
-    #         print(f"No valid moves for {self.name}")
-    #         pass
+    # NEW METHOD!
+    def __eq__(self, other):
+        if other == None:
+            return False
+        else:
+            return self.name == other.name and self.color == other.color
 
     def set_texture(self, size=80):
         self.texture = os.path.join(f'assets/images/imgs-{size}px/{self.color}_{self.name}.png')

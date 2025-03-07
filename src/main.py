@@ -7,8 +7,7 @@ from const import *
 from game import Game
 from square import Square
 from move import Move
-
-
+import copy
 
 class Main:
     def __init__(self):
@@ -94,7 +93,14 @@ class Main:
                         if board.valid_move(dragger.piece, move):
                             # normal capture
                             captured = board.squares[released_row][released_col].has_piece()
+                            
+                            # NEW CODE! Update counters after piece capture
+                            if captured:
+                                board.update_pieces_count(game.current_player) # update piece counter after capture
+                                board.last_move_when_piece_captured = board.move_count # set this variable to 'move_count' after capture
+                                
                             board.move(dragger.piece, move)
+                            board.moves_history.append((dragger.piece, move)) # NEW CODE: add last move to the history of game moves
                             board.set_true_en_passant(dragger.piece) # make sure en passant state for pawns lasts only for 1 turn
                             game.play_sound(captured)
                             #show methods
@@ -102,10 +108,25 @@ class Main:
                             game.show_last_move(screen)
                             game.show_pieces(screen)
                             enemy_color = 'black' if game.current_player == 'white' else 'white'
+                            
+                            # NEW CODE: is king checked? 
                             if board.is_king_checked(enemy_color):
-                                #print("Check detected!")
                                 board.player_under_check = True
 
+                            # NEW CODE: evaluating three fold repetition 
+                            game.add_board_to_list_of_previous_positions(copy.deepcopy(board)) # add copy of current board, not the board itself
+                            if board.move_count >= 5:
+                                game.check_three_fold_repetition()
+                            
+                            # DEBUG INFO
+                            # board.show_pieces_count()
+                            board.show_move_counters()
+                            board.show_moves_history()
+                            
+                            # NEW CODE: increase move counter after black moves
+                            if game.current_player == 'black':
+                                board.move_count += 1
+                                #print(f"Game is advancing to move no {board.move_count}.")
                                 
                             # this line limits the player move to only one move!
                             game.current_player = 'white' if game.current_player == 'black' else 'black'
@@ -113,17 +134,31 @@ class Main:
                             dragger.piece.clear_moves()
                     dragger.undrag_piece()
 
-                    # NEW LINES: After the move was made check if the next player is in checkmate or stalemate.
-                    if board.player_has_no_valid_moves(game.current_player):
+
+                    
+                    # NEW CODE: After the move was made check if the position is draw or checkmate or stalemate.
+                    if game.three_fold_repetition_detected == True:
+                        end_of_game_message = f"Draw. Reason: three fold repetition of the position. "
+                        end_of_game_message += "Press 'r' to restart or close the app window to quit."
+                        show_popup_screen = True
+                    elif board.check_insufficient_mating_material():
+                        end_of_game_message = f"Draw. Reason: insufficient material. "
+                        end_of_game_message += "Press 'r' to restart or close the app window to quit."
+                        show_popup_screen = True
+                    elif board.check_fifty_move_rule():
+                        end_of_game_message = f"Draw. Reason: 50 moves without pawn move and capturing a piece. "
+                        end_of_game_message += "Press 'r' to restart or close the app window to quit."
+                        show_popup_screen = True
+                    elif board.player_has_no_valid_moves(game.current_player):
                         if board.player_under_check:
                             #print(f"Player {game.current_player} is checkmated!")
                             end_of_game_message = f"Player {game.current_player} is checkmated! "
                             
                         else:
                             #print(f"Player {game.current_player} is under stalemate!")
-                            end_of_game_message = f"Player {game.current_player} is under stalemate! "
+                            end_of_game_message = f"Draw. Player {game.current_player} is under stalemate! "
                             
-                        end_of_game_message += "Press 'r' to restart or close application window to quit."
+                        end_of_game_message += "Press 'r' to restart or close the app window to quit."
                         show_popup_screen = True
 
 

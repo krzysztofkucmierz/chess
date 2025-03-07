@@ -15,7 +15,12 @@ class Board:
         self._add_pieces('white')
         self._add_pieces('black')
         self.player_under_check = False # only one player can be under check at a given moment and it happens before his/her turn
-
+        self.white_pieces_count = 16 # initial number of white pieces
+        self.black_pieces_count = 16 # initial number of black pieces
+        self.move_count = 1 # Counter for game moves. 1 is initial move number
+        self.last_move_when_pawn_moved = 0 # Stores game move number when pawn was last moved. Will be set to move_count value when any Pawn will move.
+        self.last_move_when_piece_captured = 0 # Stores game move number when a piece was last moved. Will be set to move_count when any piece will be captured.
+        self.moves_history: List[Tuple[Piece, Move]] = [] # this list records all game moves (a single sequence of all white and black moves as they were played) 
 
     # This method actually makes a move 'move' for a piece 'piece' on the board
     # if testing == True then operation is performed on a temporary board to evaluate checks 
@@ -30,17 +35,24 @@ class Board:
         # standard board update for the 'move'
         self.squares[initial.row][initial.col].piece = None
         self.squares[final.row][final.col].piece = piece
-            
 
+        # NEW CODE: increase 'last_move_when_pawn_moved' counter
+        if isinstance(piece, Pawn):            
+            self.last_move_when_pawn_moved = self.move_count
+            
         # en passant capture
         if isinstance(piece, Pawn):
             diff = final.col - initial.col 
             if diff != 0 and en_passant_empty:
                 self.squares[initial.row][initial.col + diff].piece = None
                 self.squares[final.row][final.col].piece = piece
+                self.update_pieces_count(piece.color) # NEW CODE: decrease piece counter in case of en passant capture
+              
                 if not testing:
-                    sound = Sound(os.path.join('assets/sounds/capture.wav'))                    
+                    sound = Sound(os.path.join('assets/sounds/capture.wav'))
                     sound.play()
+                    # NEW CODE: increase 'last_move_when_piece_captured' counter
+                    self.last_move_when_piece_captured = self.move_count
 
 
         # Pawn promotion to a Queen
@@ -87,10 +99,10 @@ class Board:
                     
 
     # verify if the move of the piece will trigger a check
-    def in_check(self, piece: Piece, move: Move, testing: bool = True):
+    def in_check(self, piece: Piece, move: Move, testing = True):
         temp_piece = copy.deepcopy(piece)
         temp_board = copy.deepcopy(self)
-        temp_board.move(temp_piece, move, testing = True) # simulate the move
+        temp_board.move(temp_piece, move, testing = testing) # simulate the move
         # in the loop check if the above move will trigger the check condition!
         for row in range(ROWS):
             for col in range(COLS):
@@ -104,6 +116,87 @@ class Board:
         return False
 
 
+    # NEW METHOD!
+    # Check if two boards are equal. This means there is identical position on both boards.
+    # This method is needed to implement 3 fold repetition rule.
+    # Returns:
+    #   True if position on both boards is identical
+    #   False otherwise
+    def __eq__(self, other):
+        if other == None:
+            return False
+        # check if content of all board squares are identical between self and other
+        for row in range(ROWS):
+            for col in range(COLS):
+                if self.squares[row][col].piece != other.squares[row][col].piece:
+                    return False
+        return True
+
+    # NEW METHOD!
+    def show_moves_history(self):
+        for i, current_move in enumerate(self.moves_history):
+            piece, move_coordinates = current_move 
+            move_coordinates.show(piece.name, piece.color + " " + str((i // 2) + 1))
+            
+    # NEW METHOD!
+    def show_move_counters(self):
+        print(f"Game move no: {self.move_count}.")
+        print(f"Pawn last moved on move no: {self.last_move_when_pawn_moved}.")
+        print(f"Piece last captured on move no: {self.last_move_when_piece_captured}.")
+
+    # NEW METHOD!
+    # Returns True if game has reached 50 move rule which leads to game draw. 
+    # NOTE. Using > comparison as move count is increased before checking this rule
+    def check_fifty_move_rule(self, limit_moves_count: int = 50):
+        if self.move_count - self.last_move_when_pawn_moved > limit_moves_count and self.move_count - self.last_move_when_piece_captured > limit_moves_count:
+            return True
+        else:
+            return False
+        
+                
+    # NEW METHOD!
+    # Decreases one of piece counters after a move when a piece was captured.
+    def update_pieces_count(self, current_player_color: str):
+        if current_player_color == 'white':
+            self.black_pieces_count = self.black_pieces_count - 1
+        elif current_player_color == 'black':
+            self.white_pieces_count = self.white_pieces_count - 1        
+
+    # NEW METHOD!
+    def show_pieces_count(self):
+        print(f"White pieces count: {self.white_pieces_count}. Black pieces count {self.black_pieces_count}")
+
+
+    # NEW METHOD!
+    # Evaluates board to detect insufficient material. If this happens then the game ends with a draw.
+    # returns True if there is insufficient mating material: K vs K, K vs K+B, K vs K+Kn
+    # returns False if there is sufficient mating position (all other cases)
+    # TODO: there is one more case of insufficient material: king and bishop versus king and bishop with the bishops on the same color.
+    def check_insufficient_mating_material(self):
+        if self.black_pieces_count == 1 and self.white_pieces_count == 1:
+            print(f"Draw! Insufficient mating material (K vs K)!")            
+            return True
+        elif self.black_pieces_count == 1 and self.white_pieces_count == 2:
+            for row in range(ROWS):
+                for col in range(COLS):
+                    if self.squares[row][col].has_team_piece('white'):
+                        if isinstance(self.squares[row][col].piece, Bishop) or isinstance(self.squares[row][col].piece, Knight):
+                            print(f"Draw! Insufficient mating material (K vs K+B or K vs K+Kn)!") 
+                            return True
+        elif self.black_pieces_count == 2 and self.white_pieces_count == 1:        
+            for row in range(ROWS):
+                for col in range(COLS):
+                    if self.squares[row][col].has_team_piece('black'):                        
+                        if isinstance(self.squares[row][col].piece, Bishop) or isinstance(self.squares[row][col].piece, Knight):
+                            print(f"Draw! Insufficient mating material (K vs K+B or K vs K+Kn)!") 
+                            return True
+        else:
+            return False
+
+        return False
+        
+        
+        
     # NEW METHOD!
     # Evaluates if there are no moves for all pieces of given color
     # Returns:
@@ -160,7 +253,7 @@ class Board:
     # Returns:
     # True if King of color 'color' is being checked (as of current board position)
     # False otherwise
-    def is_king_checked(self, color):
+    def is_king_checked(self, color: str):
         for row in range(ROWS):
             for col in range(COLS):
                 if self.squares[row][col].has_enemy_piece(color): # if piece of opposite color found then evaluate if this piece is checking the King
@@ -231,7 +324,7 @@ class Board:
     # Returns:
     # True if King of opposite color is on adjacent square
     # False otherwise
-    def opposite_king_on_adjacent_square(self, row, col, color):
+    def opposite_king_on_adjacent_square(self, row: int, col: int, color: str):
         adjacent_squares = [
             (row-1, col-1),
             (row-1, col),
@@ -250,7 +343,7 @@ class Board:
                     return True
         return False
 
-    def calc_moves(self, piece: Piece, row: int, col: int, move_the_piece=True):
+    def calc_moves(self, piece: Piece, row: int, col: int, move_the_piece: bool =True):
         ''' 
             Calculate all the possible (valid) moves of a specific piece on a specific position
             move_the_piece == True means we are also moving a piece
@@ -550,7 +643,7 @@ class Board:
         else:
             row_pawn, row_other = (1, 0)            
 
-        # putting pawns in board
+        # putting Pawns on board
         for col in range(COLS):
             self.squares[row_pawn][col] = Square(row_pawn, col, Pawn(color))
             
@@ -569,4 +662,4 @@ class Board:
         # Queen and King
         self.squares[row_other][3] = Square(row_other, 3, Queen(color))
         self.squares[row_other][4] = Square(row_other, 4, King(color))
-         
+

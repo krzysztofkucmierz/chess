@@ -8,7 +8,10 @@ class Move:
         self.final = final
         
     def __eq__(self, other):
-        return self.initial == other.initial and self.final == other.final
+        if other == None:
+            return False
+        else:
+            return self.initial == other.initial and self.final == other.final
     
     def show(self, piece_name: str, comment: str):
-        print(f" Piece {piece_name}: {Square.get_alphacol(self.initial.col)}{ROWS-self.initial.row} -> {Square.get_alphacol(self.final.col)}{ROWS-self.final.row} ({comment})")
+        print(f"{comment} {piece_name}: {Square.get_alphacol(self.initial.col)}{ROWS-self.initial.row} -> {Square.get_alphacol(self.final.col)}{ROWS-self.final.row}")

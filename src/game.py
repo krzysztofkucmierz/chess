@@ -5,12 +5,15 @@ from board import Board
 from dragger import Dragger
 from config import Config
 from square import Square
+from typing import List
 
 class Game:
     def __init__(self):
         self.board = Board()
+        self.last_n_board_positions: List[Board] = [] # this data structure is needed to verify if 'threefold repetition' rule was reached during the game       
+        self.three_fold_repetition_detected = False # flag indicating three fold repetition on board
         self.dragger = Dragger()
-        self.current_player = 'white'        
+        self.current_player = 'white'
         self.hovered_sqr = None
         self.config = Config()
         
@@ -104,17 +107,38 @@ class Game:
     def reset(self):
         self.__init__()
         
-    # NEW METHOD!    
+    # NEW METHOD!
+    # Display a pop-up window with message to the player when current game ends.
     def draw_popup(self, surface: pygame.Surface, msg: str = "Default message"):
         WHITE = (255, 255, 255)
         GRAY = (200, 200, 200)
         BLACK = (0, 0, 0)
         BLUE = (0, 102, 204)
         font = pygame.font.Font(None, 20)
-        xSize = 600
-        ySize = 100
+        xSize = 750
+        ySize = 60
         pygame.draw.rect(surface, WHITE, ((WIDTH-xSize)/2, (HEIGHT-ySize)/2, xSize, ySize), border_radius=10)
         pygame.draw.rect(surface, BLACK, ((WIDTH-xSize)/2, (HEIGHT-ySize)/2, xSize, ySize), 3, border_radius=10)
 
         text = font.render(msg, True, BLACK)
-        surface.blit(text, (150, HEIGHT/2))
+        surface.blit(text, (100, HEIGHT/2))
+
+    # NEW METHOD!
+    # Detects three fold repetition of positions which results in a game draw
+    # Sets three_fold_repetition_detected menber variable to True if detected
+    def check_three_fold_repetition(self):
+        if self.last_n_board_positions[8] == self.last_n_board_positions[4]:
+            if self.last_n_board_positions[4] == self.last_n_board_positions[0]:
+                print(f"Three fold repetition detected on moves number: {self.last_n_board_positions[0].move_count}, {self.last_n_board_positions[4].move_count}, {self.last_n_board_positions[8].move_count}")
+                self.three_fold_repetition_detected = True
+                return
+        # print(f"Three fold repetition NOT detected on moves no =  {self.last_n_board_positions[0].move_count}, {self.last_n_board_positions[4].move_count},  {self.last_n_board_positions[8].move_count}")
+        
+    # NEW METHOD!
+    # Used to control content of self.last_n_board_positions List. 
+    # Maximum number of boards stored in this list is 9.
+    # This is because players need to move pieces 8 times in total to reach three fold repetition.
+    def add_board_to_list_of_previous_positions(self, board: Board, n: int = 9):
+        if len(self.last_n_board_positions) >= n:
+            self.last_n_board_positions.pop(0)  # Remove the first element (FIFO behavior)
+        self.last_n_board_positions.append(board)  # Add the new element
