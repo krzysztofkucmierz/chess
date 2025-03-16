@@ -11,7 +11,10 @@ class Game:
     def __init__(self):
         self.board = Board()
         self.last_n_board_positions: List[Board] = [] # this data structure is needed to verify if 'threefold repetition' rule was reached during the game       
-        self.three_fold_repetition_detected = False # flag indicating three fold repetition on board
+        self.three_fold_repetition_detected: bool = False # flag indicating three fold repetition on board
+        self.game_message: str = ""
+        self.stopAI = False
+        
         self.dragger = Dragger()
         self.current_player = 'white'
         self.hovered_sqr = None
@@ -19,6 +22,7 @@ class Game:
         
     # show methods
     def show_bg(self, surface: pygame.Surface):
+        font = pygame.font.SysFont('monospace', 18, bold=True)
         theme = self.config.theme
         for row in range(ROWS):
             for col in range (COLS):
@@ -29,18 +33,25 @@ class Game:
                 # show row coordinates
                 if col == 0:
                     color = theme.bg.dark if row % 2 == 0 else theme.bg.light
-                    col_label = self.config.font.render(str(ROWS-row), 1, color)
+                    col_label = font.render(str(ROWS-row), 1, color)
                     col_label_pos = (5, 5 + row * SQSIZE)
                     surface.blit(col_label, col_label_pos)
                     
                 # show col coordinates
                 if row == 7:
                     color = theme.bg.dark if (row + col) % 2 == 0 else theme.bg.light
-                    row_label = self.config.font.render(Square.get_alphacol(col), 1, color)
+                    row_label = font.render(Square.get_alphacol(col), 1, color)
                     row_label_pos = (col* SQSIZE + SQSIZE - 20, HEIGHT - 20)
                     surface.blit(row_label, row_label_pos)                
                 
-                
+    def show_AI_moves_analyzed(self, surface: pygame.Surface, moves_count: int):
+        font = pygame.font.SysFont('monospace', 36, bold=True)
+        theme = self.config.theme
+        color = theme.bg.dark
+        col_label = font.render(str(moves_count), 1, color)
+        col_label_pos = (5, 5 + 7 * SQSIZE)
+        surface.blit(col_label, col_label_pos)
+                        
     def show_pieces(self, surface: pygame.Surface):
         for row in range(ROWS):
             for col in range (COLS):
@@ -70,9 +81,10 @@ class Game:
                 
     def show_last_move(self, surface: pygame.Surface):
         theme = self.config.theme
-        if self.board.last_move:
-            initial = self.board.last_move.initial
-            final = self.board.last_move.final
+        last_move = self.board.current_state.move
+        if last_move:
+            initial = last_move.initial
+            final = last_move.final
             
             for pos in [initial, final]:
                 # set color
@@ -81,6 +93,31 @@ class Game:
                 rect = (pos.col * SQSIZE, pos.row * SQSIZE, SQSIZE, SQSIZE)
                 # blit
                 pygame.draw.rect(surface, surface_color, rect)
+
+    def show_en_passant_pawn(self, surface: pygame.Surface):
+        theme = self.config.theme
+        row, col = self.board.get_en_passant_pawn_position()
+        
+        # set color
+        surface_color = theme.trace.light if (row + col) % 2 == 0 else theme.trace.dark                
+        # create rectangle
+        rect = (col * SQSIZE, row * SQSIZE, SQSIZE, SQSIZE)
+        # blit
+        pygame.draw.rect(surface, surface_color, rect)
+
+
+
+    def show_pieces_not_moved_yet(self, surface: pygame.Surface):
+        theme = self.config.theme
+        rows, cols = self.board.get_pieces_not_moved_yet()
+
+        for row, col in zip(rows, cols):
+            # set color
+            surface_color = theme.trace.light if (row + col) % 2 == 0 else theme.trace.dark                
+            # create rectangle
+            rect = (col * SQSIZE, row * SQSIZE, SQSIZE+10, SQSIZE+10)
+            # blit
+            pygame.draw.rect(surface, surface_color, rect)
 
 
     def show_hover(self, surface: pygame.Surface):
@@ -98,11 +135,6 @@ class Game:
     def change_theme(self):
         self.config.change_theme()
         
-    def play_sound(self, captured=False):
-        if captured:
-            self.config.capture_sound.play()
-        else:
-            self.config.move_sound.play()
             
     def reset(self):
         self.__init__()
@@ -123,11 +155,15 @@ class Game:
         text = font.render(msg, True, BLACK)
         surface.blit(text, (100, HEIGHT/2))
 
+    # TODO: Commenting out these verifications to speed up program execution!!!!
     # NEW METHOD!
     # Detects three fold repetition of positions which results in a game draw
     # Sets three_fold_repetition_detected menber variable to True if detected
     def check_three_fold_repetition(self):
-        if self.last_n_board_positions[8] == self.last_n_board_positions[4]:
+        return False
+        if len(self.last_n_board_positions) < 9:
+            print(f"Attempting to check three fold repetition rule but the list has only {len(self.last_n_board_positions)} boards! It should contain 9.")
+        elif self.last_n_board_positions[8] == self.last_n_board_positions[4]:
             if self.last_n_board_positions[4] == self.last_n_board_positions[0]:
                 print(f"Three fold repetition detected on moves number: {self.last_n_board_positions[0].move_count}, {self.last_n_board_positions[4].move_count}, {self.last_n_board_positions[8].move_count}")
                 self.three_fold_repetition_detected = True
@@ -142,3 +178,35 @@ class Game:
         if len(self.last_n_board_positions) >= n:
             self.last_n_board_positions.pop(0)  # Remove the first element (FIFO behavior)
         self.last_n_board_positions.append(board)  # Add the new element
+
+    def check_win(self, color: str) -> bool:
+        enemy_color = 'black' if color == 'white' else 'white'        
+        if self.board.is_king_checked(enemy_color) and self.board.player_has_no_valid_moves(enemy_color):
+            self.game_message = f"Player {enemy_color} is checkmated! "
+            self.game_message += "Press 'r' to restart or close the app window to quit."            
+            return True
+        else:
+            return False
+    
+    def check_draw(self) -> bool:
+        enemy_color = 'black' if self.current_player == 'white' else 'white'
+        if not self.board.is_king_checked(enemy_color) and self.board.player_has_no_valid_moves(enemy_color):
+            self.game_message = f"Draw. Player {enemy_color} is under stalemate! "
+            self.game_message += "Press 'r' to restart or close the app window to quit."            
+            return True
+        elif self.board.current_state.move_count >= 5:
+            self.check_three_fold_repetition()
+            if self.three_fold_repetition_detected:
+                self.game_message = f"Draw. Reason: three fold repetition of the position. "
+                self.game_message += "Press 'r' to restart or close the app window to quit."
+                return True
+        elif self.board.check_insufficient_mating_material():
+            self.game_message = f"Draw. Reason: insufficient material. "
+            self.game_message += "Press 'r' to restart or close the app window to quit."            
+            return True
+        elif self.board.check_fifty_move_rule():
+            self.game_message = f"Draw. Reason: 50 moves without pawn move and capturing a piece. "
+            self.game_message += "Press 'r' to restart or close the app window to quit."
+            return True
+        else: 
+            return False

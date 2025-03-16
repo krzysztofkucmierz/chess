@@ -6,3 +6,6 @@ HEIGHT = 800
 ROWS = 8
 COLS = 8
 SQSIZE = WIDTH // COLS
+
+# AI constants
+AI_MAX_DEPTH = 0
