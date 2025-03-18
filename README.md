@@ -1,6 +1,6 @@
 # Overview
 
-This project is a chessboard with AI mode (AI mode not implemented yet) written in Python. It uses a pygame library.  
+This project is a chessboard with AI mode written in Python. It uses a pygame library.  
 It is an improved version of the chessboard project created by AlejoG10.  
 Alejo's original code is available on GH at https://github.com/AlejoG10/python-chess-ai-yt  
 AlejoG10 has also created 5 hours long hands-on tutorial on Youtube https://www.youtube.com/watch?v=OpL0Gcfn4B4 (watch it if you'd like to implement a chessboard "from scratch").  
@@ -9,11 +9,11 @@ However I've found several bugs and missing functionalities in his implementatio
 I have implemented simplest version of minimax algorithm for AI player.  
 Human player starts as white and AI has black pieces.  
 
-Unfortunately the AI is painfully slow.  
+Unfortunately the AI is currently painfully slow.  
 It runs fast only on AI_MAX_DEPTH = 0 (predicts only one move ahead).  
 On AI_MAX_DEPTH=1 you need to wait at least 20 seconds for AI to make a move.  
-No reason to play at higher depths.   
-It is so slow because AlejoG10 used deepcopy(). As number of tested moves increase exponentially, the number of deepcopy() calls does similary. Next I will redesign data structures and code logic to remove deepcopy() operations.  
+No reason to play at higher depths.  
+It is so slow because AlejoG10 used deepcopy(). As number of tested moves increase exponentially, the number of deepcopy()calls does similary. Next I will redesign data structures and code logic to remove deepcopy() operations.  
 
 # List of game improvements
 
@@ -67,5 +67,5 @@ It is so slow because AlejoG10 used deepcopy(). As number of tested moves increa
 
 When cloning you can choose which version of the code to clone.  
 Available tags:  
-baseline_no_AI  - minimal changes to original AlejoG10 code
-minimax_slow_AI - above + introduced player vs AI mode
+- baseline_no_AI  - minimal changes to original AlejoG10 code  
+- minimax_slow_AI - above + introduced player vs AI mode
