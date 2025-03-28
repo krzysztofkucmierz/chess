@@ -1,5 +1,5 @@
 # Original code by AlejoG10 avaiable at GitHub https://github.com/AlejoG10/python-chess-ai-yt
-# Bug fixes/improvements/new features by KK-lerning-github
+# Bug fixes/improvements/new features by Krzysztof Kućmierz krzysztof.kucmierz@artificiuminformatica.pl
 
 import pygame
 import sys
@@ -7,10 +7,12 @@ from const import *
 from game import Game
 from square import Square
 from move import Move
+from piece import color_name
 import copy
 from minimax import *
 from sound import Sound
 import os
+import tkinter as tk
 
 import cProfile
 profiler = cProfile.Profile()
@@ -24,22 +26,128 @@ class Main:
         self.move_sound = Sound(os.path.join('assets/sounds/move.wav'))
         self.capture_sound = Sound(os.path.join('assets/sounds/capture.wav'))
         self.AI_engine = AI()
+        self.human_player_moved = False # set to True if human (white player) made a move, reset to False afte AI made a move
+        self.show_popup_screen = False # controls whether to display end of game screen
+
+    # Function to show the pop up with buttons and return user selection
+    def get_game_mode(self):
+
+        mode = []
+
+        def select_mode(selected_mode):
+            # Callback to store the selected mode and close the window.
+            mode.append(selected_mode)
+            root.destroy()  # Close the window
+
+        # Create Tkinter window
+        root = tk.Tk()
+        root.title("Select Game Mode")
+
+        #Centers the Tkinter window on the screen.
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+        width = 300
+        height = 200
+        # Calculate position x, y
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+        
+        root.geometry(f"{width}x{height}+{x}+{y}")
+
+        # Create label
+        label = tk.Label(root, text="Choose Game Mode:", font=("Arial", 12))
+        label.pack(pady=10)
+
+        # Create buttons
+        btn_pvp = tk.Button(root, text="Player vs. Player", command=lambda: select_mode(GameMode.PLAYER_VS_PLAYER_MODE))
+        btn_pvp.pack(pady=5)
+
+        btn_pvc = tk.Button(root, text="Player vs. Computer (black)", command=lambda: select_mode(GameMode.PLAYER_VS_AI_MODE))
+        btn_pvc.pack(pady=5)
+
+        btn_pvc = tk.Button(root, text="Computer (white) vs. Player", command=lambda: select_mode(GameMode.AI_VS_PLAYER_MODE))
+        btn_pvc.pack(pady=5)
+
+        # Run the Tkinter event loop
+        root.mainloop()
+
+        # Return selected mode
+        return mode[0] if mode else None  # Return selected mode or None if window was closed
+
         
     def play_sound(self, captured=False):
         if captured:
             self.capture_sound.play()
         else:
             self.move_sound.play()
+
+    def AI_turn(self):
+        ai_turn_as_white = (self.human_player_moved and self.game.current_player == WHITE_PIECE_COLOR) or self.game.first_move_made == False # condition for move when AI plays as white
+        ai_turn_as_black = self.human_player_moved and self.game.current_player == BLACK_PIECE_COLOR and self.game.stopAI == False # condition for move when AI plays as black
+        if (self.game.mode == GameMode.AI_VS_PLAYER_MODE and ai_turn_as_white) or (self.game.mode == GameMode.PLAYER_VS_AI_MODE and ai_turn_as_black): 
+            print("Now it is AI turn...")
+            self.game.show_bg(self.screen)
+            self.game.show_last_move(self.screen)
+            #game.show_pieces_not_moved_yet(screen)
+            self.game.show_pieces(self.screen)
+            pygame.display.update()
+            
+            #profiler.enable()  # Start profiling
+            best_piece, best_move = self.AI_engine.best_move(self.game, self.screen)
+            #profiler.disable()  # Stop profiling
+
+
+            #profiler.print_stats(sort=1)
+            if best_move:
+                if self.game.first_move_made == False:
+                    self.game.first_move_made = True
                 
+                # remember last move - append to the moves history
+                self.game.moves_history.append((copy.deepcopy(best_piece), copy.deepcopy(best_move)))
+                
+                self.play_sound(self.game.board_states[self.game.move_count].current_state.captured)
+
+                #show methods
+                self.game.show_bg(self.screen)
+                self.game.show_last_move(self.screen)
+                self.game.show_pieces(self.screen)
+                pygame.display.update()
+                best_move.show(best_piece.name, "AI made a move! ")
+
+                # check if win or draw condition is on the board
+                if self.game.check_draw():
+                    self.show_popup_screen = True                               
+                elif self.game.check_win(self.game.current_player):
+                    self.show_popup_screen = True
+                else:
+                    self.show_popup_screen = False                        
+                if self.show_popup_screen:
+                    self.game.draw_popup(self.screen, self.game.game_message)
+            else:
+                self.game.game_message = f"You won! AI has resigned."
+                self.game.game_message += "Press 'r' to restart or close the app window to quit."
+                self.show_popup_screen = True                        
+                self.game.draw_popup(self.screen, self.game.game_message)
+
+            self.game.prepare_board_state_for_next_move()
+            
+            self.human_player_moved = False        
+        
+        
     def mainloop(self):
         game = self.game
         screen = self.screen
-        board = self.game.board
         dragger = self.game.dragger
-        show_popup_screen = False # controls whether to display end of game screen
-        human_player_moved = False # set to True if human (white player) made a move, reset to False afte AI made a move
 
-        
+        # Get gameplay mode (PvP, PvC, CvP)
+        game.mode = self.get_game_mode()
+        print("Selected mode:", game.mode)
+
+        # At the very beginning set counters to first move
+        # increment by 1 'game.move_count' and move_count counter in next board_state
+        game.move_count += 1
+        game.board_states[game.move_count].current_state.move_count = game.move_count # move count was already incresed in above line
+
         while True:
             # show methods
             game.show_bg(screen)
@@ -49,8 +157,10 @@ class Main:
             game.show_pieces(screen)
             game.show_hover(screen)
 
+
+
             # NEW LINES: if game ended show a popup window on screen
-            if show_popup_screen:
+            if self.show_popup_screen:
                 game.draw_popup(screen, game.game_message)
 
 
@@ -60,49 +170,8 @@ class Main:
             for event in pygame.event.get():
 
                 # AI turn
-                # if (human_player_moved and game.current_player == 'white') or board.first_move_made == False: # use this if clause to start AI as white
-                if human_player_moved and game.current_player == 'black' and game.stopAI == False: # use this if statement to start human as white
-                    print("Now it is AI turn...")
-                    game.show_bg(screen)
-                    game.show_last_move(screen)
-                    #game.show_pieces_not_moved_yet(screen)
-                    game.show_pieces(screen)
-                    pygame.display.update()
-                    
-                    #profiler.enable()  # Start profiling
-                    best_piece, best_move = self.AI_engine.best_move(game, screen)
-                    #profiler.disable()  # Stop profiling
-                    #profiler.print_stats()
-                    if best_move:
-                        board.first_move_made = True 
-                        board.current_state.captured = board.squares[best_move.final.row][best_move.final.col].has_piece()                        
-                        self.play_sound(board.current_state.captured)
-                        #show methods
-                        game.show_bg(screen)
-                        game.show_last_move(screen)
-                        game.show_pieces(screen)
-                        pygame.display.update()
-                        best_move.show(best_piece.name, "AI made a move! ")
-                        # check if win or draw condition is on the board
-                        if game.check_draw():
-                            show_popup_screen = True                               
-                        elif game.check_win(game.current_player):
-                            show_popup_screen = True
-                        else:
-                            show_popup_screen = False                        
-                        if show_popup_screen:
-                            game.draw_popup(screen, game.game_message)
-                    else:
-                        game.game_message = f"You won! AI has resigned."
-                        game.game_message += "Press 'r' to restart or close the app window to quit."
-                        show_popup_screen = True                        
-                        game.draw_popup(screen, game.game_message)
-
-                    board.first_move_made = True # from now on current_state will be appended to previous_states list
-                    
-                    human_player_moved = False
-                    game.current_player = 'white' if game.current_player == 'black' else 'black'
-
+                if game.mode != GameMode.PLAYER_VS_PLAYER_MODE:
+                    self.AI_turn()
 
                 # click event
                 if event.type == pygame.MOUSEBUTTONDOWN:
@@ -111,9 +180,9 @@ class Main:
                     clicked_row = dragger.mouseY // SQSIZE
                     clicked_col = dragger.mouseX // SQSIZE
                     # if clicked square has a piece and the piece is of the color of current player turn 
-                    if board.squares[clicked_row][clicked_col].has_team_piece(game.current_player):
-                        piece = board.squares[clicked_row][clicked_col].piece
-                        board.calc_moves(piece, clicked_row, clicked_col)
+                    if game.board_states[game.move_count].squares[clicked_row][clicked_col].has_team_piece(game.current_player):
+                        piece = game.board_states[game.move_count].squares[clicked_row][clicked_col].piece
+                        game.board_states[game.move_count].calc_moves(piece, clicked_row, clicked_col)
                         dragger.save_initial(event.pos)
                         dragger.drag_piece(piece)
                         # show methods
@@ -153,57 +222,58 @@ class Main:
                         final = Square(released_row, released_col)
                         move = Move(initial, final)
                         
-                        if board.valid_move(dragger.piece, move):
+                        if game.board_states[game.move_count].valid_move(dragger.piece, move):
+                            if game.first_move_made == False:
+                                game.first_move_made = True
 
-                            # normal capture
-                            board.current_state.captured = board.squares[released_row][released_col].has_piece()
+                            # check if piece captured
+                            game.board_states[game.move_count].set_capturing_move_flag(move)
 
-                            board.move(dragger.piece, move)
-                            board.first_move_made = True # from now on current_state will be appended to previous_states list
-                            self.play_sound(board.current_state.captured)
+                            # move the piece
+                            game.board_states[game.move_count].move(dragger.piece, move)
+
+                            # add a new move to game.moves_history
+                            game.moves_history.append((copy.deepcopy(piece), copy.deepcopy(move)))
+
+                            self.play_sound(game.board_states[game.move_count].current_state.captured)
+
                             #show methods
                             game.show_bg(screen)
                             game.show_last_move(screen)
                             #game.show_pieces_not_moved_yet(screen)
                             game.show_pieces(screen)
                             pygame.display.update()
-                            
                             # DEBUG INFO
-                            board.show_pieces_count()
-                            board.show_move_counters()
-                            #board.show_moves_history()
-                            print(f"Game score based on value of pieces is: {board.calculate_piece_score()}")
+                            #game.board_states[game.move_count].show_pieces_count()
+                            #game.show_move_counters()
+                            #game.board_states[game.move_count].show_move_counters()
+                            print(f"Game score based on value of pieces is: {game.board_states[game.move_count].calculate_piece_score()}")
                             
-                            # NEW CODE! check if win or draw condition is on the board
+                            # check if win or draw condition is on the board
                             if game.check_draw():
-                                show_popup_screen = True
+                                self.show_popup_screen = True
                                 game.stopAI = True
 
                             elif game.check_win(game.current_player):
-                                show_popup_screen = True
+                                self.show_popup_screen = True
                                 game.stopAI = True
 
                             else:
-                                show_popup_screen = False
+                                self.show_popup_screen = False
 
-                            if show_popup_screen:
+                            if self.show_popup_screen:
                                 game.draw_popup(screen, game.game_message)
-
-                            if game.current_player == 'black':
-                                board.current_state.move_count += 1
-                                print(f"Game is advancing to move no {board.current_state.move_count}.")
-                                
-                            # Below line must be stay as the last one after the valid move. This linie limits the player move to only one move!
-                            game.current_player = 'white' if game.current_player == 'black' else 'black'
-                            board.current_state.player_color = game.current_player
-                            print(f"{board.current_state.player_color} turn... ")
-                            human_player_moved = True
-
+                            
+                            game.prepare_board_state_for_next_move()
+                            
+                            print(f"{color_name(game.current_player)} turn... ")
+                            self.human_player_moved = True
                         else:
                             #print("Piece was dragged to invalid square")
                             dragger.piece.clear_moves()
                     dragger.undrag_piece()
                     game.show_pieces(screen)
+                    game.show_en_passant_pawn(screen)                    
                     pygame.display.update()
                     
 
@@ -216,23 +286,30 @@ class Main:
                     # resetting game
                     if event.key == pygame.K_r: # on 'r' key pressed
                         game.reset()
-                        show_popup_screen = False
+                        self.show_popup_screen = False
                         # we need to reset values of game, board and dragger as well as they were created based on previous game object
                         game = self.game
-                        board = self.game.board
                         dragger = self.game.dragger
 
                     # undoing last move
                     if event.key == pygame.K_u: # on 'u' key pressed
+                        self.show_popup_screen = False
+                        # remove last move from history
+                        if game.move_count == 0:
+                            print("Can't undo. Game is in initial state!")
+                        else:
+                            if game.moves_history:
+                                game.moves_history.pop()
+                            # undo the move
+                            game.undo_last_move()
+                            print(f"Game is going back to player {color_name(game.current_player)} move no {game.move_count}.")
+                            #show methods
+                            game.show_bg(screen)
+                            game.show_last_move(screen)
+                            #game.show_pieces_not_moved_yet(screen)
+                            game.show_pieces(screen)
+                            pygame.display.update()
 
-                        show_popup_screen = False
-                        # call undo_last_move() - this will also decrease move count and remove last move from history
-                        board.undo_last_move()
-                        # set new value of game.current_player 
-                        game.current_player = board.current_state.player_color
-
-                        print(f"Game is going back to player {game.current_player} move no {board.current_state.move_count} () board.player_color is {board.current_state.player_color} ).")                       
-                        
                 elif event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()

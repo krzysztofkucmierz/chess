@@ -1,0 +1,33 @@
+                                                                    AI.minimax() and AI.best_move() 
+pygame.MOUSEBUTTONUP event + if Board.valid_move()                    |     |   
+ |                                                                    |     |   
+ |                                                                    |     |   
+ |                                                                    |     |   
+ |                                                                    |     |   
+ |                                                                    |     |  
+ |            Board.player_has_no_valid_moves()                       |     |   
+ |                                      |                             |     |   
+ |                                      |                             |     |   
+ |   pygame.MOUSEBUTTONDOWN event       |                             |     |    
+ |    |                                 |                             |     |     
+ |    |                                 |                             |     |    
+ |    |                                 |                             |     |    
+ |    |                                 |                             |     |    
+ |    |------------------------ Board.calc_moves() -------------------|-----|
+ |                               |                                    |     |
+ |                               |                                    |     |
+ |                              Board.in_check()                      |     |
+ |                               |                                    |     |
+ |                               |                                    |     |
+ |----------------------------- Board.move() -------------------------|-----|
+                                                                      |     |
+                                                                      |     | 
+                                                                      |     |
+                                            Board.undo_last_move() ---|-----|
+
+!!! IMPORTANT!!! 
+1. When invoking move() from in_check() function set in_testing parameter to True.
+This will not remove previous moves stored in piece.moves!
+If they are removed then the list of moves to perform on a piece will contain only the last calculated move (all other calculated moves will be deleted)
+
+2. Board.player_has_no_valid_moves() is making calculations on deepcopy of the piece.moves objects
