@@ -6,16 +6,43 @@ Alejo's original code is available on GH at https://github.com/AlejoG10/python-c
 AlejoG10 has also created 5 hours long hands-on tutorial on Youtube https://www.youtube.com/watch?v=OpL0Gcfn4B4 (watch it if you'd like to implement a chessboard "from scratch").  
 However I've found several bugs and missing functionalities in his implementation so I've decided to work on it.  
 
-About the most recent version of the project:  
+## About the most recent version of the project:  
 - It implements the simplest minimax algorithm for AI.  
 - Performance has improved 5 times comparing to previous version just by optimizing original data structures and code flow.  
 - You can select 3 game modes: player vs. player, player vs. AI and AI vs. player.  
 
 Unfortunately AI is still very slow.  
-It runs fast only on AI_MAX_DEPTH = 2 (predicts only 2 piece moves ahead).  
+It runs fast only on AI_MAX_DEPTH = 2 where it predicts only 3 piece moves ahead (depth=0 is no recurrence).  
 On AI_MAX_DEPTH = 3 you need to wait ~30 seconds for AI to make a move.  
 No reason to play at higher depths.  
 To further improve performance I will implement alpha-beta pruning for minimax.  
+
+
+
+# Game Snapshots
+
+## Snapshot 1 - Checkmate detected
+![snapshot1](snapshots/checkmate.png)
+
+## Snapshot 2 - Draw - stalemate detected
+![snapshot2](snapshots/stalemate.png)
+
+## Snapshot 3 - Draw - insufficient material
+![snapshot3](snapshots/draw-insufficient-material.png)
+
+## Snapshot 4 - Select game mode
+![snapshot4](snapshots/select-game-mode.png)
+
+## How to run?
+1. Clone, fork or download the project, then go to the project's main directory  
+2. pip install -r requirements.txt  
+3. python .\src\main.py # on Windows OS  
+  
+## You can choose which version of the code to run and work on.  
+Available tags:  
+- baseline_no_AI  - minimal changes to original AlejoG10 code  
+- minimax_slow_AI - above + introduced player vs AI mode
+- minimax_v2_AI - above + performance improved ~5 times
 
 # List of game improvements
 
@@ -49,30 +76,3 @@ To further improve performance I will implement alpha-beta pruning for minimax.
  Make the move even if it puts the king in check, from there check from the king's position if any piece attacks it by looking at capture moves from the king's position.  
  If it results in a capture, just undo the move. it happens really fast you wont see the invalid move being executed.  
  The idea is that you make a function that assumes the king can move like a queen, bishop, rook, knight or pawn capture."  
-
-
-
-# Game Snapshots
-
-## Snapshot 1 - Checkmate detected
-![snapshot1](snapshots/checkmate.png)
-
-## Snapshot 2 - Draw - stalemate detected
-![snapshot2](snapshots/stalemate.png)
-
-## Snapshot 3 - Draw - insufficient material
-![snapshot3](snapshots/draw-insufficient-material.png)
-
-## Snapshot 4 - Select game mode
-![snapshot4](snapshots/select-game-mode.png)
-
-# How to run?
-1. Clone, fork or download the project, then go to the project's main directory  
-2. pip install -r requirements.txt
-3. python .\src\main.py # on Windows OS
-
-When cloning you can choose which version of the code to clone.  
-Available tags:  
-- baseline_no_AI  - minimal changes to original AlejoG10 code  
-- minimax_slow_AI - above + introduced player vs AI mode
-- minimax_v2_AI - above + performance improved ~5 times
