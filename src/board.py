@@ -88,6 +88,11 @@ class Board:
         self.current_state.piece = other.current_state.piece # piece object
         self.current_state.player_color = other.current_state.player_color
         self.current_state.white_pieces_count = other.current_state.white_pieces_count
+        # FIXED BUG: these two flags were not copied, so after prepare_board_state_for_next_move()
+        # check_win()/check_draw() read stale values left over from previously explored
+        # minimax branches instead of the result of the move just made
+        self.current_state.opponent_king_checked = other.current_state.opponent_king_checked
+        self.current_state.opponent_has_no_valid_moves = other.current_state.opponent_has_no_valid_moves
 
     # dumps board information from 'squares' structure into 'squares_fast_method' structure
     def dump_to_squares_fast_method(self):

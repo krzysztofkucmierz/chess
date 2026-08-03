@@ -29,17 +29,21 @@ class AI:
 
         board = game_state.board_states[game_state.move_count]  # creating board variable for better readibility!
         
+        # FIXED BUG: check_win() used to ignore its color argument, so every checkmate in the
+        # tree was scored by the first branch (as a black win) regardless of who was mated.
+        # Mates are scored finitely and depth-adjusted so that faster mates are preferred and
+        # the scores are never masked by the best_score initial values.
         if game_state.check_win(BLACK_PIECE_COLOR):
-            return float('-inf')
+            return float(-(MATE_SCORE - depth))
         elif game_state.check_win(WHITE_PIECE_COLOR):
-            return float('inf')
+            return float(MATE_SCORE - depth)
         elif game_state.check_draw():
             return 0
         if depth > AI_MAX_DEPTH:  # if max depth is reached stop recurrence
             return board.calculate_piece_score()
        
         if is_maximizing:
-            best_score = -1000
+            best_score = float('-inf') # so that even a forced mate against the player is not masked
 
             for row in range(ROWS):
                 for col in range(COLS):
@@ -70,8 +74,7 @@ class AI:
             return best_score
         
         else: # if is minimizing
-            best_score = 1000
-
+            best_score = float('inf') # so that even a forced mate against the player is not masked
             for row in range(ROWS):
                 for col in range(COLS):
                     if board.squares[row][col].has_team_piece(game_state.current_player):
@@ -101,7 +104,7 @@ class AI:
             return best_score
 
     # function for debugging
-    def show_all_possible_moves(self, game_state: Game) -> bool:
+    def show_all_possible_moves(self, game_state: Game) -> None:
         board = game_state.board_states[game_state.move_count]
         for row in range(ROWS):
             for col in range(COLS):

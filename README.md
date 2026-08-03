@@ -84,6 +84,9 @@ NOTE: A detailed, prioritized list of further correctness fixes and performance 
  FIXED:     Bug 8. A pawn that advanced only one square could be captured "en passant", and undoing a move (also the internal undos of the minimax algorithm) marked whatever piece moved last - even a Knight or Rook - as capturable en passant.  
             Root cause: the en passant flag was set after ANY pawn move instead of only after a two-square push, and undo re-flagged the last moved piece unconditionally.  
             Now the flag is set only by a two-square pawn push and undo restores it only for such a pawn. Covered by regression tests in tests/test_en_passant.py.  
+ FIXED:     Bug 9. The AI scored every checkmate in its search tree as a win for black, so as white it avoided delivering mate and as either color it could walk into one.  
+            Root cause: check_win() ignored its color argument (any mate returned True for both colors), the mate/stalemate flags were not copied between board states so minimax nodes read stale values from previously explored branches, and mate scores were masked by the +/-1000 best_score initializers.  
+            Now the win is attributed to the color that made the mating move, the flags are copied in copy_board_content(), and mates get finite depth-adjusted scores so the AI prefers the fastest mate. Covered by regression tests in tests/test_checkmate_scoring.py.  
 
 ## Performance improvements:
  IMPLEMENTED:   Improvement 1. Increase performance by redesigning program data structures. Mainly to avoid very costly deepcopy() operations.  This will also simplify overall program logic.  

@@ -9,6 +9,9 @@ SQSIZE = WIDTH // COLS
 
 # AI constants
 AI_MAX_DEPTH = 2
+# base score of a checkmate found by minimax; the depth at which the mate occurs is
+# subtracted from it so that faster mates score higher (must exceed any material score)
+MATE_SCORE = 100000
 
 from enum import Enum
 

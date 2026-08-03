@@ -77,7 +77,9 @@ The `True` is unconditional, so after every undo — including the thousands of 
 
 **Fix:** only re-flag when the stored piece is a `Pawn` and its recorded move was a double push; otherwise just clear all en-passant flags.
 
-### 1.6. `check_win()` ignores its `color` argument — `src/game.py:194-201` + `src/minimax.py:32-35`
+### 1.6. `check_win()` ignores its `color` argument — `src/game.py:194-201` + `src/minimax.py:32-35` — ✅ FIXED
+
+> **Status: fixed.** `check_win(color)` now attributes the win to the color of the piece that made the mating move (`current_state.piece`, valid both before and after `prepare_board_state_for_next_move()`). Minimax scores mates side-aware, finite and depth-adjusted (`±(MATE_SCORE - depth)`, `MATE_SCORE = 100000` in `const.py`), and the `best_score` loop initializers were changed from `±1000` to `±inf` so mate scores are never masked. **Additionally discovered and fixed:** `copy_board_content()` did not copy `opponent_king_checked` / `opponent_has_no_valid_moves`, so every minimax node read stale mate/stalemate flags left over from previously explored branches — mate detection inside the search was effectively random before this. Verified by `tests/test_checkmate_scoring.py`; the old code reproducibly failed.
 
 `check_win(color)` never uses `color` in its condition — it only reads `opponent_king_checked and opponent_has_no_valid_moves`. In minimax:
 

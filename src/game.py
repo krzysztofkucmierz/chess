@@ -175,27 +175,30 @@ class Game:
         return False
         if len(self.last_n_board_positions) < 9:
             print(f"Attempting to check three fold repetition rule but the list has only {len(self.last_n_board_positions)} boards! It should contain 9.")
-        elif self.last_n_board_positions[8] == self.last_n_board_positions[4]:
-            if self.last_n_board_positions[4] == self.last_n_board_positions[0]:
-                print(f"Three fold repetition detected on moves number: {self.last_n_board_positions[0].move_count}, {self.last_n_board_positions[4].move_count}, {self.last_n_board_positions[8].move_count}")
-                self.three_fold_repetition_detected = True
-                return
+        elif self.last_n_board_positions[8] == self.last_n_board_positions[4] and self.last_n_board_positions[4] == self.last_n_board_positions[0]:
+            print(f"Three fold repetition detected on moves number: {self.last_n_board_positions[0].move_count}, {self.last_n_board_positions[4].move_count}, {self.last_n_board_positions[8].move_count}")
+            self.three_fold_repetition_detected = True
+            return
         # print(f"Three fold repetition NOT detected on moves no =  {self.last_n_board_positions[0].move_count}, {self.last_n_board_positions[4].move_count},  {self.last_n_board_positions[8].move_count}")
         
     # Returns True if game has reached 50 move rule which leads to game draw. 
     # NOTE. Using > comparison as move count is increased before checking this rule
-    def check_fifty_move_rule(self, limit_moves_count: int = 50):
+    def check_fifty_move_rule(self, limit_moves_count: int = 50) -> bool:
         #print(f"Game.check_fifty_move_rule(): pawns: {(self.move_count - self.board_states[self.move_count].current_state.last_move_when_pawn_moved) // 2} captures: {(self.move_count - self.board_states[self.move_count].current_state.last_move_when_piece_captured) // 2}")
-        if (self.move_count - self.board_states[self.move_count].current_state.last_move_when_pawn_moved) // 2 >= limit_moves_count and (self.move_count - self.board_states[self.move_count].current_state.last_move_when_piece_captured) // 2 >= limit_moves_count:
-            return True
-        else:
-            return False
+        return (self.move_count - self.board_states[self.move_count].current_state.last_move_when_pawn_moved) // 2 >= limit_moves_count and (self.move_count - self.board_states[self.move_count].current_state.last_move_when_piece_captured) // 2 >= limit_moves_count
 
+    # Returns True if player 'color' has checkmated the opponent
     def check_win(self, color: int) -> bool:
-        enemy_color = BLACK_PIECE_COLOR if color == WHITE_PIECE_COLOR else WHITE_PIECE_COLOR        
-        if self.board_states[self.move_count].current_state.opponent_king_checked and self.board_states[self.move_count].current_state.opponent_has_no_valid_moves:
+        enemy_color = BLACK_PIECE_COLOR if color == WHITE_PIECE_COLOR else WHITE_PIECE_COLOR
+        state = self.board_states[self.move_count].current_state
+        # FIXED BUG: the 'color' argument was ignored, so a checkmate was reported as a win
+        # for whichever color was asked about first. The winner is the color of the piece
+        # that made the last (mating) move - state.piece is the only field holding it both
+        # before and after prepare_board_state_for_next_move() (player_color gets switched).
+        if state.opponent_king_checked and state.opponent_has_no_valid_moves \
+                and state.piece is not None and state.piece.color == color:
             self.game_message = f"Player {color_name(enemy_color)} is checkmated! "
-            self.game_message += "Press 'r' to restart or close the app window to quit."            
+            self.game_message += "Press 'r' to restart or close the app window to quit."
             return True
         else:
             return False
@@ -208,15 +211,15 @@ class Game:
             return True
         elif self.check_three_fold_repetition():
             if self.three_fold_repetition_detected:
-                self.game_message = f"Draw. Reason: three fold repetition of the position. "
+                self.game_message = "Draw. Reason: three fold repetition of the position. "
                 self.game_message += "Press 'r' to restart or close the app window to quit."
                 return True
         elif self.board_states[self.move_count].check_insufficient_mating_material():
-            self.game_message = f"Draw. Reason: insufficient material. "
+            self.game_message = "Draw. Reason: insufficient material. "
             self.game_message += "Press 'r' to restart or close the app window to quit."            
             return True
         elif self.check_fifty_move_rule():
-            self.game_message = f"Draw. Reason: 50 moves without pawn move and capturing a piece. "
+            self.game_message = "Draw. Reason: 50 moves without pawn move and capturing a piece. "
             self.game_message += "Press 'r' to restart or close the app window to quit."
             return True
         else: 
