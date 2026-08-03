@@ -1,3 +1,5 @@
 src/__pycache__/
 assets/images/.DS_Store
 chess.code-workspace
+brudnopis.txt
+piece_representation.py

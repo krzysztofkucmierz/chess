@@ -17,8 +17,6 @@ On AI_MAX_DEPTH = 3 you need to wait ~30 seconds for AI to make a move.
 No reason to play at higher depths.  
 To further improve performance I will implement alpha-beta pruning for minimax.  
 
-
-
 # Game Snapshots
 
 ## Snapshot 1 - Checkmate detected
