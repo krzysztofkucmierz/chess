@@ -188,7 +188,10 @@ class Board:
 
         # make sure en passant state for pawns lasts only for 1 turn, so clear the en passant flag for all other pawns on the board
         if not test_check:
-            self.set_true_en_passant(piece, pawn_moved)
+            # FIXED BUG: only a two-square pawn push makes the pawn capturable en passant,
+            # a single push must not set the flag
+            double_pawn_push = pawn_moved and abs(final.row - initial.row) == 2
+            self.set_true_en_passant(piece, double_pawn_push)
             
         # 2. dump content of 'square' structure into 'squares_fast_method'
         if not test_check:
@@ -232,15 +235,16 @@ class Board:
     def castling(self, initial, final):
         return abs(initial.col - final.col) == 2
 
-    # check for all pawns and set their en_passant state to False if they were not moved in the last move
-    def set_true_en_passant(self, piece, pawn_moved: bool):
-        
+    # clear the en_passant flag of all pawns on the board; if the last move was a two-square
+    # pawn push, flag that pawn as capturable en passant (the flag lasts only 1 turn)
+    def set_true_en_passant(self, piece, double_pawn_push: bool):
+
         for row in range(ROWS):
             for col in range(COLS):
                 if isinstance(self.squares[row][col].piece, Pawn):
                     self.squares[row][col].piece.en_passant = False
 
-        if pawn_moved:
+        if double_pawn_push:
             piece.en_passant = True
 
     # set 'captured' flag by checking if destination square contained a piece 

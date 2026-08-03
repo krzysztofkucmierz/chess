@@ -2,7 +2,7 @@
 import pygame
 from const import *
 from board import Board
-from piece import Piece, color_name, piece_moved
+from piece import Piece, Pawn, color_name, piece_moved
 from move import Move
 from dragger import Dragger
 from config import Config
@@ -221,6 +221,7 @@ class Game:
             return True
         else: 
             return False
+        return False
         
     # returns if piece was moved based on moves history
     def piece_moved(self, piece: Piece, row, col) -> bool:
@@ -249,9 +250,15 @@ class Game:
     # Set en_passant flags for board state after move_count  (restoring correct Piece attributes required when undoing a move)
     def undo_en_passant(self):
         if self.move_count > 0:
-            piece = self.board_states[self.move_count].current_state.piece
+            state = self.board_states[self.move_count].current_state
+            piece = state.piece
             if piece:
-                self.board_states[self.move_count].set_true_en_passant(piece, True)
+                # FIXED BUG: re-flag only a Pawn whose recorded move was a two-square push;
+                # after any other last move all en passant flags must simply be cleared
+                double_pawn_push = (isinstance(piece, Pawn)
+                                    and state.move is not None
+                                    and abs(state.move.final.row - state.move.initial.row) == 2)
+                self.board_states[self.move_count].set_true_en_passant(piece, double_pawn_push)
     
     # Set moved flag of Piece moved in move_count + 1 (restoring correct Piece attributes required when undoing a move)    
     def undo_moved(self):

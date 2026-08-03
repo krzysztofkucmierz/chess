@@ -55,13 +55,17 @@ Two rules of castling are not enforced:
 
 **Fix:** before adding the castling move, require `not self.is_king_checked(piece.color)`, and validate the king's transit square with a direct `in_check()` test. Remove the rook-move proxy test.
 
-### 1.4. En passant flag set on any pawn move — `src/board.py:235-243`
+### 1.4. En passant flag set on any pawn move — `src/board.py:235-243` — ✅ FIXED
+
+> **Status: fixed.** `Board.move()` now passes a `double_pawn_push` flag (`abs(final.row - initial.row) == 2`) to `set_true_en_passant()`, so single pushes never mark a pawn as capturable. Verified together with 1.5 by `tests/test_en_passant.py`; the old code reproducibly failed.
 
 `set_true_en_passant()` sets `piece.en_passant = True` for **every** pawn move, including single-square pushes. Combined with the capture conditions in `pawn_moves()` (`src/board.py:547-585`), a pawn that advanced only one square can be illegally captured "en passant".
 
 **Fix:** set the flag only when the pawn moved two squares: `abs(move.initial.row - move.final.row) == 2`. Pass the move (or a `double_push` boolean) instead of the current `pawn_moved` flag.
 
-### 1.5. `undo_en_passant()` re-flags arbitrary pieces — `src/game.py:250-254`
+### 1.5. `undo_en_passant()` re-flags arbitrary pieces — `src/game.py:250-254` — ✅ FIXED
+
+> **Status: fixed.** `Game.undo_en_passant()` now re-flags only when the recorded piece is a `Pawn` whose recorded move was a two-square push; after any other move all flags are simply cleared. Verified together with 1.4 by `tests/test_en_passant.py` (undo after knight moves and single pushes leaves no flags; undo after a double push correctly restores the flag).
 
 ```python
 piece = self.board_states[self.move_count].current_state.piece

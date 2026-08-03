@@ -41,7 +41,7 @@ To further improve performance I will implement alpha-beta pruning for minimax.
 Regression tests live in the tests directory (currently castling execution; a perft test comparing move counts against known reference values is planned next, see IMPROVEMENTS.md section 4).  
 
 1. python .\tests\test_castling.py # standalone, no extra dependencies  
-2. pytest tests # alternatively, if you have pytest installed  
+2. python -m pytest tests # alternatively, if you have pytest installed  
 
 ## You can choose which version of the code to run and work on.  
 Available tags:  
@@ -81,6 +81,9 @@ NOTE: A detailed, prioritized list of further correctness fixes and performance 
  FIXED:     Bug 7. Castling was allowed through a square attacked by an enemy piece (and castling out of check was only prevented by accident).  
             Root cause: only the King's destination square was validated; the transit square (d1/d8 or f1/f8) was never tested for attack.  
             Now castling requires: King not in check, transit square not attacked, destination not attacked. Covered by regression tests in tests/test_castling_legality.py.  
+ FIXED:     Bug 8. A pawn that advanced only one square could be captured "en passant", and undoing a move (also the internal undos of the minimax algorithm) marked whatever piece moved last - even a Knight or Rook - as capturable en passant.  
+            Root cause: the en passant flag was set after ANY pawn move instead of only after a two-square push, and undo re-flagged the last moved piece unconditionally.  
+            Now the flag is set only by a two-square pawn push and undo restores it only for such a pawn. Covered by regression tests in tests/test_en_passant.py.  
 
 ## Performance improvements:
  IMPLEMENTED:   Improvement 1. Increase performance by redesigning program data structures. Mainly to avoid very costly deepcopy() operations.  This will also simplify overall program logic.  
