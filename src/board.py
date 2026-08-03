@@ -651,7 +651,9 @@ class Board:
                             if not isinstance(self.squares[possible_move_row][possible_move_col].piece, King):
                                 if not self.in_check(piece, move):
                                     piece.add_move(move)
-                                break
+                            # FIXED BUG: any enemy piece (including the King) blocks the ray,
+                            # so squares behind it must not be generated as moves
+                            break
                         
                         # has friendly piece
                         elif self.squares[possible_move_row][possible_move_col].has_team_piece(piece.color):

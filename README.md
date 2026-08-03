@@ -75,6 +75,9 @@ NOTE: A detailed, prioritized list of further correctness fixes and performance 
  FIXED:     Bug 5. Sometimes when playing with AI, a user is not allowed to perform valid queenside Castling.  
             Root cause: castling in Board.move() executed the last move from the Rook's own move list, which goes stale during minimax (moves are recalculated with clear_moves=False), corrupting castling state.  
             Now the Rook relocation is derived directly from the King's destination square. Covered by regression tests in tests/test_castling.py.  
+ FIXED:     Bug 6. Queen, Rook and Bishop could "see through" the enemy King: squares behind the King on the attack ray were generated as valid moves.  
+            Root cause: the ray-terminating break in straightline_moves() was nested inside the "blocker is not a King" guard, so the enemy King did not stop the ray.  
+            Covered by regression tests in tests/test_sliding_moves.py.  
 
 ## Performance improvements:
  IMPLEMENTED:   Improvement 1. Increase performance by redesigning program data structures. Mainly to avoid very costly deepcopy() operations.  This will also simplify overall program logic.  

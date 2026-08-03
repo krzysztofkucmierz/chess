@@ -27,7 +27,9 @@ Ordered by user-visible impact.
 
 Then delete the `piece.left_rook` / `piece.right_rook` attributes and the `rook.add_move(moveRook)` appends in `king_moves()` entirely.
 
-### 1.2. Sliding rays pass through the enemy king — `src/board.py:645-653`
+### 1.2. Sliding rays pass through the enemy king — `src/board.py:645-653` — ✅ FIXED
+
+> **Status: fixed.** The `break` was moved out of the `King` guard so any enemy piece terminates the ray; the guard now only suppresses the king-capture move itself. Verified with regression tests in `tests/test_sliding_moves.py` (rook/bishop/queen rays blocked by the enemy king, plus normal enemy-piece blocking unchanged); the old code reproducibly failed them.
 
 In `straightline_moves()` the `break` is nested **inside** the `not isinstance(..., King)` guard:
 
