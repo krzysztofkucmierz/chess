@@ -178,11 +178,12 @@ class Board:
                 if self.castling(initial, final): # check if castling move detected
                     self.current_state.castling_move = True
                     diff = final.col - initial.col
-                    rook = piece.left_rook if (diff < 0) else piece.right_rook
-                    rook_move = rook.moves[-1]
-                    # changed from recursion to normal implementation! 
-                    self.squares[rook_move.initial.row][rook_move.initial.col].piece = None
-                    self.squares[rook_move.final.row][rook_move.final.col].piece = rook
+                    # derive the rook relocation from the king's destination:
+                    # queenside (diff < 0): rook (row, 0) -> (row, 3), kingside: rook (row, 7) -> (row, 5)
+                    rook_initial_col, rook_final_col = (0, 3) if (diff < 0) else (7, 5)
+                    rook = self.squares[final.row][rook_initial_col].piece
+                    self.squares[final.row][rook_initial_col].piece = None
+                    self.squares[final.row][rook_final_col].piece = rook
                     rook.moved = True
 
         # make sure en passant state for pawns lasts only for 1 turn, so clear the en passant flag for all other pawns on the board
@@ -707,7 +708,6 @@ class Board:
                             if self.squares[row][c].has_piece():
                                 break
                             if c == 3:
-                                piece.left_rook = left_rook
                                 # rook move
                                 initial = Square(row, 0)
                                 final = Square(row, 3)
@@ -717,11 +717,10 @@ class Board:
                                 initial = Square(row, col)
                                 final = Square(row, 2)
                                 moveKing = Move(initial, final)
-                                
+
                                 #  see if there are potential checks
                                 if not self.in_check(piece, moveKing):
                                     if not self.in_check(left_rook, moveRook):
-                                        left_rook.add_move(moveRook)
                                         piece.add_move(moveKing)
 
 
@@ -735,7 +734,6 @@ class Board:
                             if self.squares[row][c].has_piece():
                                 break
                             if c == 6:
-                                piece.right_rook = right_rook
                                 # rook move
                                 initial = Square(row, 7)
                                 final = Square(row, 5)
@@ -744,11 +742,10 @@ class Board:
                                 initial = Square(row, col)
                                 final = Square(row, 6)
                                 moveKing = Move(initial, final)
-                
+
                                 #  see if there are potential checks
                                 if not self.in_check(piece, moveKing):
                                     if not self.in_check(right_rook, moveRook):
-                                        right_rook.add_move(moveRook)
                                         piece.add_move(moveKing)
       
         #print(f"performing calc_moves for {color_name(piece.color)} {piece.name}.")

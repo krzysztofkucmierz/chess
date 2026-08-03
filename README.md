@@ -36,6 +36,13 @@ To further improve performance I will implement alpha-beta pruning for minimax.
 2. pip install -r requirements.txt  
 3. python .\src\main.py # on Windows OS  
   
+## How to run tests?
+
+Regression tests live in the tests directory (currently castling execution; a perft test comparing move counts against known reference values is planned next, see IMPROVEMENTS.md section 4).  
+
+1. python .\tests\test_castling.py # standalone, no extra dependencies  
+2. pytest tests # alternatively, if you have pytest installed  
+
 ## You can choose which version of the code to run and work on.  
 Available tags:  
 - baseline_no_AI  - minimal changes to original AlejoG10 code  
@@ -43,6 +50,8 @@ Available tags:
 - minimax_v2_AI - above + performance improved ~5 times
 
 # List of game improvements
+
+NOTE: A detailed, prioritized list of further correctness fixes and performance improvements (with exact file/line references) is maintained in [IMPROVEMENTS.md](IMPROVEMENTS.md).  
 
 ## Features not present in the original code:
  IMPLEMENTED:   Feature 1. Detect when a King is actually in check.  
@@ -63,7 +72,9 @@ Available tags:
  FIXED:     Bug 2. Sometimes a Knight couldn't capture an enemy piece if that enemy piece was giving a check.  
  FIXED:     Bug 3. King was allowed to move to a square adjacent to an enemy King and as a result it could capture enemy King.  
  FIXED:     Bug 4. Queen, Rook, Bishop and Knight were allowed to capture enemy King when starting a game from other position than initial.  
- TODO:      Bug 5. Sometimes when playing with AI, a user is not allowed to perform valid queenside Castling.  
+ FIXED:     Bug 5. Sometimes when playing with AI, a user is not allowed to perform valid queenside Castling.  
+            Root cause: castling in Board.move() executed the last move from the Rook's own move list, which goes stale during minimax (moves are recalculated with clear_moves=False), corrupting castling state.  
+            Now the Rook relocation is derived directly from the King's destination square. Covered by regression tests in tests/test_castling.py.  
 
 ## Performance improvements:
  IMPLEMENTED:   Improvement 1. Increase performance by redesigning program data structures. Mainly to avoid very costly deepcopy() operations.  This will also simplify overall program logic.  

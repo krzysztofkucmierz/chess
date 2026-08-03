@@ -15,7 +15,9 @@ Recommended order of work: fix the correctness bugs first (they also corrupt the
 
 Ordered by user-visible impact.
 
-### 1.1. Castling executes `rook.moves[-1]` — `src/board.py:180-186` ⚠️ prime suspect for the queenside castling bug
+### 1.1. Castling executes `rook.moves[-1]` — `src/board.py:180-186` ⚠️ prime suspect for the queenside castling bug — ✅ FIXED
+
+> **Status: fixed.** `Board.move()` now derives the rook relocation from the king's destination column; the `rook.add_move(moveRook)` appends in `king_moves()` and the `King.left_rook`/`right_rook` attributes were removed. Verified with a regression test covering all four castles plus the empty-move-list crash scenario (the old code reproducibly raised `IndexError` on it).
 
 `king_moves()` appends the castling rook-move onto the **rook's own move list** (`src/board.py:724` and `:751`), and `Board.move()` later executes `rook.moves[-1]` to relocate the rook. During minimax the search runs with `clear_moves=False` and only the currently iterated piece gets cleared, so `rook.moves` accumulates stale entries — `moves[-1]` can be an ordinary rook move calculated earlier (rook teleported to a wrong square) or the list can be empty (`IndexError`; already worked around once by skipping castling when `test_check=True`). The corrupted state persists into the real game, which is why castling is sometimes refused after playing vs AI.
 
