@@ -700,30 +700,29 @@ class Board:
 
 
             # castling moves
-            if not piece.moved:
+            # FIXED BUG: castling is not allowed when the King is currently in check
+            if not piece.moved and not self.is_king_checked(piece.color):
                 # queenside castling
                 left_rook = self.squares[row][0].piece
-                #print(f"! left_rook: {left_rook.name} {left_rook.color} moved? {left_rook.moved}") 
+                #print(f"! left_rook: {left_rook.name} {left_rook.color} moved? {left_rook.moved}")
                 if isinstance(left_rook, Rook):
                     if not left_rook.moved:
                         for c in range(1,4):
                             if self.squares[row][c].has_piece():
                                 break
                             if c == 3:
-                                # rook move
-                                initial = Square(row, 0)
-                                final = Square(row, 3)
-                                moveRook = Move(initial, final)
-
                                 # king move
                                 initial = Square(row, col)
                                 final = Square(row, 2)
                                 moveKing = Move(initial, final)
 
+                                # FIXED BUG: the King must not pass through an attacked square,
+                                # so test the transit square directly with a King move
+                                moveKingTransit = Move(Square(row, col), Square(row, 3))
+
                                 #  see if there are potential checks
-                                if not self.in_check(piece, moveKing):
-                                    if not self.in_check(left_rook, moveRook):
-                                        piece.add_move(moveKing)
+                                if not self.in_check(piece, moveKing) and not self.in_check(piece, moveKingTransit):
+                                    piece.add_move(moveKing)
 
 
 
@@ -736,19 +735,18 @@ class Board:
                             if self.squares[row][c].has_piece():
                                 break
                             if c == 6:
-                                # rook move
-                                initial = Square(row, 7)
-                                final = Square(row, 5)
-                                moveRook = Move(initial, final)
                                 # king move
                                 initial = Square(row, col)
                                 final = Square(row, 6)
                                 moveKing = Move(initial, final)
 
+                                # FIXED BUG: the King must not pass through an attacked square,
+                                # so test the transit square directly with a King move
+                                moveKingTransit = Move(Square(row, col), Square(row, 5))
+
                                 #  see if there are potential checks
-                                if not self.in_check(piece, moveKing):
-                                    if not self.in_check(right_rook, moveRook):
-                                        piece.add_move(moveKing)
+                                if not self.in_check(piece, moveKing) and not self.in_check(piece, moveKingTransit):
+                                    piece.add_move(moveKing)
       
         #print(f"performing calc_moves for {color_name(piece.color)} {piece.name}.")
         if isinstance(piece, Pawn): 

@@ -45,7 +45,9 @@ When the blocking enemy piece **is** the king, the loop does not break and keeps
 
 **Fix:** move the `break` one level out so any enemy piece terminates the ray; keep the `King` check only to suppress `add_move`.
 
-### 1.3. Castling legality checks incomplete — `src/board.py:699-752`
+### 1.3. Castling legality checks incomplete — `src/board.py:699-752` — ✅ FIXED
+
+> **Status: fixed.** Castling is now offered only when the king is not currently in check (`is_king_checked` gate), and the king's transit square (d1/d8 queenside, f1/f8 kingside) is validated with a direct `in_check` king-move test; the rook-move proxy test was removed. Verified with regression tests in `tests/test_castling_legality.py` (out of check, through attacked transit, into attacked destination, and the b-file square legitimately not blocking queenside); the old code reproducibly failed the transit-square cases.
 
 Two rules of castling are not enforced:
 - **Castling out of check is allowed** — there is no test that the king is not currently in check before offering the castling move.

@@ -78,6 +78,9 @@ NOTE: A detailed, prioritized list of further correctness fixes and performance 
  FIXED:     Bug 6. Queen, Rook and Bishop could "see through" the enemy King: squares behind the King on the attack ray were generated as valid moves.  
             Root cause: the ray-terminating break in straightline_moves() was nested inside the "blocker is not a King" guard, so the enemy King did not stop the ray.  
             Covered by regression tests in tests/test_sliding_moves.py.  
+ FIXED:     Bug 7. Castling was allowed through a square attacked by an enemy piece (and castling out of check was only prevented by accident).  
+            Root cause: only the King's destination square was validated; the transit square (d1/d8 or f1/f8) was never tested for attack.  
+            Now castling requires: King not in check, transit square not attacked, destination not attacked. Covered by regression tests in tests/test_castling_legality.py.  
 
 ## Performance improvements:
  IMPLEMENTED:   Improvement 1. Increase performance by redesigning program data structures. Mainly to avoid very costly deepcopy() operations.  This will also simplify overall program logic.  
