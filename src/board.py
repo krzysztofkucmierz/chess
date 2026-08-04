@@ -216,9 +216,14 @@ class Board:
             if pawn_moved:
                 self.current_state.last_move_when_pawn_moved = self.current_state.move_count
 
-            enemy_color = BLACK_PIECE_COLOR if piece.color == WHITE_PIECE_COLOR else WHITE_PIECE_COLOR
-            self.current_state.opponent_king_checked = self.is_king_checked(enemy_color)
-            self.current_state.opponent_has_no_valid_moves = self.player_has_no_valid_moves(enemy_color)
+            # OPTIMIZATION: these two flags are needed only by the GUI (check_win/check_draw
+            # after a real move). Computing player_has_no_valid_moves() here costs a full
+            # extra ply of move generation, so it must not run for every minimax node -
+            # the AI detects mate/stalemate itself from an empty legal-move list.
+            if not ai_minimax:
+                enemy_color = BLACK_PIECE_COLOR if piece.color == WHITE_PIECE_COLOR else WHITE_PIECE_COLOR
+                self.current_state.opponent_king_checked = self.is_king_checked(enemy_color)
+                self.current_state.opponent_has_no_valid_moves = self.player_has_no_valid_moves(enemy_color)
 
         # final processing of the move
         if not test_check:
@@ -359,7 +364,22 @@ class Board:
         print(f"Player {color_name(color)} has no valid moves!")
         return True
 
-    # Evaluates if a piece on a sqare [row][col] is giving check in a straight line to the King of 'color' color 
+    # Lean early-exit variant of player_has_no_valid_moves() for the minimax search:
+    # returns True as soon as the first legal move of 'color' is found.
+    # NOTE: rebinds piece.moves (clear_moves) without restoring it - safe inside minimax,
+    # where every node clears and regenerates moves before using them.
+    def has_any_valid_move(self, color: int) -> bool:
+        for row in range(ROWS):
+            for col in range(COLS):
+                if self.squares[row][col].has_team_piece(color):
+                    piece = self.squares[row][col].piece
+                    piece.clear_moves()
+                    self.calc_moves(piece, row, col)
+                    if piece.moves:
+                        return True
+        return False
+
+    # Evaluates if a piece on a sqare [row][col] is giving check in a straight line to the King of 'color' color
     # Used for Bishop, Rook and Queen pieces in is_king_checked() method
     # Returns:
     # True if check detected

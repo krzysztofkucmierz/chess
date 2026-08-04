@@ -28,12 +28,15 @@ from piece import King, Rook
 
 
 def play(board, from_sq, to_sq):
+    # ai_minimax=False: real-move semantics, so the opponent_king_checked /
+    # opponent_has_no_valid_moves flags read by check_win() are computed
+    # (during the AI search they intentionally are not - see IMPROVEMENTS.md 2.2)
     piece = board.squares[from_sq[0]][from_sq[1]].piece
     piece.clear_moves()
     board.calc_moves(piece, from_sq[0], from_sq[1])
     for move in piece.moves:
         if (move.final.row, move.final.col) == to_sq:
-            board.move(piece, move, clear_moves=False, ai_minimax=True)
+            board.move(piece, move, clear_moves=False, ai_minimax=False)
             return piece
     raise AssertionError(f"move {from_sq} -> {to_sq} was not generated")
 

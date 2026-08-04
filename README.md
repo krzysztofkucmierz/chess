@@ -97,6 +97,9 @@ NOTE: A detailed, prioritized list of further correctness fixes and performance 
 ## Performance improvements:
  IMPLEMENTED:   Improvement 1. Increase performance by redesigning program data structures. Mainly to avoid very costly deepcopy() operations.  This will also simplify overall program logic.  
  
+ IMPLEMENTED:   Improvement 3. Removed the opponent-has-no-valid-moves scan from every minimax node - the AI now detects mate/stalemate from its own legal move list, and the scan runs only after real (GUI) moves.  
+                Measured: depth 3 move time dropped from 311 s to 138 s (start position) and from 823 s to 239 s (middlegame), with an identical search result. See IMPROVEMENTS.md item 2.2.  
+
  TODO:          Improvement 2. Efficient method of avoiding putting the King in check suggested by 'Wave Treader':  
  "This method does not need any copy or simulating all possible moves, it does not need to check for all opponent's possible moves.  
  It works like this.... you must have tracked the kings position every move and save it.  
