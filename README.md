@@ -38,10 +38,16 @@ To further improve performance I will implement alpha-beta pruning for minimax.
   
 ## How to run tests?
 
-Regression tests live in the tests directory (currently castling execution; a perft test comparing move counts against known reference values is planned next, see IMPROVEMENTS.md section 4).  
+Regression tests live in the tests directory: castling, sliding moves, en passant, checkmate scoring and a perft harness comparing move counts against known reference values (start position, Kiwipete, CPW position 3).  
 
-1. python .\tests\test_castling.py # standalone, no extra dependencies  
-2. python -m pytest tests # alternatively, if you have pytest installed  
+1. python -m pytest tests # whole suite, needs pytest  
+2. python .\tests\test_perft.py # each test file also runs standalone, no extra dependencies  
+3. python .\tests\test_perft.py --deep # additionally verifies the slow deep counts (startpos perft(4) = 197,281)  
+
+There is also an AI timing benchmark (not part of the test suite) to measure performance improvements:  
+
+1. python .\tests\benchmark_ai.py # times AI.best_move() at depths 2 and 3  
+2. python .\tests\benchmark_ai.py 2 # or at the depths you list  
 
 ## You can choose which version of the code to run and work on.  
 Available tags:  

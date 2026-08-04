@@ -110,7 +110,11 @@ The auto-queen promotion executes even when `test_check=True`, allocating a new 
 
 **Fix:** skip promotion when `test_check=True` (the occupying piece type doesn't change the "is my king in check" answer for that probe).
 
-### 1.10. Latent: `Piece.is_black()` always returns `True` — `src/piece.py:36`
+### 1.10. Undoing castling leaves the Rook's `moved` flag set — `src/game.py` (`undo_moved`) — ✅ FIXED
+
+> **Found by the perft harness** (kiwipete perft(2) counted 1,995 instead of 2,039): `undo_moved()` restored only the King's `moved` flag, never the Rook's, and Piece objects are shared across board states. After any minimax line in which a castle was tried, that Rook kept `moved = True` forever — castling silently disappeared from the rest of the search **and from the real game** (the second root cause behind README Bug 5). Fixed by restoring the castling Rook's flag from the previous state's `squares_fast_method` in `undo_moved()`. Guarded by `tests/test_perft.py` (kiwipete).
+
+### 1.11. Latent: `Piece.is_black()` always returns `True` — `src/piece.py:36`
 
 ```python
 return bool(~(piece_data & WHITE_PIECE_COLOR))
@@ -171,7 +175,7 @@ Console I/O executed inside the search loop:
 
 ## 4. Verification
 
-- **Perft test harness** — automate the Stockfish comparison already done manually in `src/brudnopis.txt`: from the starting position assert **perft(3) = 8,902** and **perft(4) = 197,281**, driving the tree through the same `move()` / `prepare_board_state_for_next_move()` / `undo_last_move()` path minimax uses. Add one or two hand-set-up positions rich in castling/en-passant to exercise the fixed paths. Run after **every** correctness fix — perft catches move-generation regressions instantly.
-- **Timing benchmark** — measure `best_move()` wall time and `moves_analyzed` at depth 2 and 3 (start position + one middlegame position) before and after each performance item.
+- **Perft test harness** — ✅ IMPLEMENTED as `tests/test_perft.py`: start position (20 / 400 / 8,902, plus 197,281 at depth 4 behind `CHESS_PERFT_DEEP=1` or `--deep`), "Kiwipete" (48 / 2,039, castling/pin heavy) and CPW position 3 (14 / 191 / 2,812, en passant/pin heavy), all driven through the same `move()` / `prepare_board_state_for_next_move()` / `undo_last_move()` path minimax uses. Runs in a few seconds by default; part of `pytest tests`. It found and led to fixing item 1.10 on its very first run.
+- **Timing benchmark** — ✅ IMPLEMENTED as `tests/benchmark_ai.py` (not a pytest test; run directly, optionally passing depths: `python .\tests\benchmark_ai.py 2 3`). Measures `best_move()` wall time and `moves_analyzed` at each depth from the start position and a Giuoco Piano middlegame. Baseline on this machine (2026-08-04, before performance work): startpos depth 2 = 8.0 s / 24,825 moves; middlegame depth 2 = 10.7 s / 37,139 moves; **startpos depth 3 = 311 s / 728,887 moves; middlegame depth 3 = 823 s / 1,272,509 moves**. These are the numbers the section 2 quick wins should be measured against.
 - **Alpha-beta equivalence** — before deleting the plain-minimax path, assert the alpha-beta root score equals the plain minimax root score on several positions (pruning must never change the result, only the work).
 - **Manual sanity** — play a full game vs AI checking specifically: queenside castling works for both colors; castling is refused while in check or through an attacked square; en passant is only available on the immediately following move; no sliding piece ever moves through the enemy king.
