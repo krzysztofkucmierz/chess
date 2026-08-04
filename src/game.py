@@ -2,7 +2,7 @@
 import pygame
 from const import *
 from board import Board
-from piece import Piece, Pawn, color_name, piece_moved
+from piece import Piece, Pawn, King, color_name, piece_moved
 from move import Move
 from dragger import Dragger
 from config import Config
@@ -263,14 +263,24 @@ class Game:
                                     and abs(state.move.final.row - state.move.initial.row) == 2)
                 self.board_states[self.move_count].set_true_en_passant(piece, double_pawn_push)
     
-    # Set moved flag of Piece moved in move_count + 1 (restoring correct Piece attributes required when undoing a move)    
+    # Set moved flag of Piece moved in move_count + 1 (restoring correct Piece attributes required when undoing a move)
     def undo_moved(self):
         # get initial square of the Move performed at move_count + 1
-        initial = self.board_states[self.move_count + 1].current_state.move.initial
+        move = self.board_states[self.move_count + 1].current_state.move
+        initial = move.initial
         # set piece attribute moved according to its previous state (by decoding info from square_fast_method)
         piece = self.board_states[self.move_count + 1].current_state.piece
         previous_moved_state = piece_moved(self.board_states[self.move_count].squares_fast_method[initial.row][initial.col])
         piece.moved = previous_moved_state
+        # FIXED BUG: undoing a castling move must also restore the moved flag of the Rook,
+        # otherwise the (shared) Rook object keeps moved=True after lines explored by minimax
+        # and castling with it is refused for the rest of the game
+        if isinstance(piece, King) and abs(move.final.col - move.initial.col) == 2:
+            rook_initial_col, rook_final_col = (0, 3) if move.final.col == 2 else (7, 5)
+            rook = self.board_states[self.move_count + 1].squares[move.final.row][rook_final_col].piece
+            if rook is not None:
+                rook.moved = piece_moved(
+                    self.board_states[self.move_count].squares_fast_method[move.final.row][rook_initial_col])
         
         
     # Procedure to undo the last move
