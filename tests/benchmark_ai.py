@@ -25,7 +25,6 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
 os.chdir(REPO_ROOT)  # asset paths inside src are relative to the repo root
 
 from game import Game
-import minimax
 from minimax import AI
 
 # Giuoco Piano: 1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5 - a quiet middlegame-ish position
@@ -73,9 +72,6 @@ def sq_name(row, col):
 
 
 def benchmark(position_name, game_factory, depth):
-    # NOTE: minimax() reads the module-level AI_MAX_DEPTH instead of AI.max_depth
-    # (IMPROVEMENTS.md item 2.5), so the depth is patched at module level here
-    minimax.AI_MAX_DEPTH = depth
     game = game_factory()
     ai = AI(max_depth=depth)
     started = time.perf_counter()

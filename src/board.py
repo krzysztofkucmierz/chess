@@ -7,7 +7,6 @@ from square import Square
 from sound import Sound
 
 import os
-import copy
 
 class BoardState:
     def __init__(self):
@@ -351,7 +350,10 @@ class Board:
                     
                     #piece=copy.deepcopy(self.squares[row][col].piece)
                     piece=self.squares[row][col].piece  
-                    tmp_moves = copy.deepcopy(piece.moves)
+                    # OPTIMIZATION: a shallow copy is enough - the list is only saved and
+                    # restored around the probe, the Move objects are never mutated
+                    # (deepcopy recursed into whole Piece objects via Move.final.piece)
+                    tmp_moves = piece.moves[:]
                     piece.clear_moves()
                     self.calc_moves(piece, row, col)
                     if piece.moves != []:
@@ -510,12 +512,13 @@ class Board:
 
     # Returns score of the current board position
     def calculate_piece_score(self) -> float:
-        score = 0
-        for col in range(COLS):
-            for row in range(ROWS):
-                if is_piece(self.squares_fast_method[row][col]): # OPTIMIZATION
-                #if self.squares[row][col].has_piece():
-                    piece = self.squares[row][col].piece
+        # OPTIMIZATION: runs once per minimax leaf, so iterate the squares directly
+        # instead of indexing through both board representations
+        score = 0.0
+        for row_squares in self.squares:
+            for square in row_squares:
+                piece = square.piece
+                if piece is not None:
                     score += piece.value
         return score
 

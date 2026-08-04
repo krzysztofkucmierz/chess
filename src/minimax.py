@@ -9,6 +9,9 @@ import pygame
 import time
 
 class AI:
+    # max_depth semantics: best_move() plays ply 1 itself and calls minimax() with depth=1;
+    # recursion stops when depth > max_depth, so max_depth = N means the AI analyzes
+    # N+1 plies in total (e.g. max_depth = 2 predicts 3 piece moves ahead)
     def __init__(self, max_depth = AI_MAX_DEPTH):
         self.max_depth = max_depth
         self.moves_analyzed = 0
@@ -39,7 +42,9 @@ class AI:
         if game_state.check_fifty_move_rule() or board.check_insufficient_mating_material():
             return 0
 
-        if depth > AI_MAX_DEPTH:  # if max depth is reached stop recurrence
+        # FIXED BUG: the module constant AI_MAX_DEPTH was read here instead of
+        # self.max_depth, so the AI(max_depth=...) constructor argument was ignored
+        if depth > self.max_depth:  # if max depth is reached stop recurrence
             # OPTIMIZATION (no per-node player_has_no_valid_moves scan): at the horizon
             # only look for a checkmate, and only when the king is actually in check
             if board.is_king_checked(current_player) and not board.has_any_valid_move(current_player):
@@ -69,7 +74,7 @@ class AI:
             best_score = float('-inf')
 
             for current_piece, move in legal_moves:
-                if depth == AI_MAX_DEPTH:
+                if depth == self.max_depth:
                     self.moves_analyzed += 1
 
                 board.move(current_piece, move, test_check = False, clear_moves = False, ai_minimax=True)
@@ -93,7 +98,7 @@ class AI:
             best_score = float('inf')
 
             for current_piece, move in legal_moves:
-                if depth == AI_MAX_DEPTH:
+                if depth == self.max_depth:
                     self.moves_analyzed += 1
 
                 board.move(current_piece, move, test_check = False, clear_moves = False, ai_minimax=True)

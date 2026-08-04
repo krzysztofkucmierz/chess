@@ -145,7 +145,9 @@ Every `Board.move()` — i.e. every node of the search tree — runs `player_has
 
 **Fix:** detect terminal nodes in minimax itself, for free: if generating moves at a node yields **zero legal moves**, the node is checkmate when `is_king_checked(side_to_move)` is true, stalemate otherwise. (Generating all node moves up front is needed for move ordering in 2.1 anyway.) Keep computing `opponent_king_checked` / `opponent_has_no_valid_moves` only on the real-move GUI path (e.g. gate on `not ai_minimax`).
 
-### 2.3. Replace `copy.deepcopy(piece.moves)` — `src/board.py:339`
+### 2.3. Replace `copy.deepcopy(piece.moves)` — `src/board.py:339` — ✅ IMPLEMENTED
+
+> **Status: implemented.** `player_has_no_valid_moves()` now saves/restores the list with a shallow copy `piece.moves[:]` (the Move objects are never mutated; `deepcopy` recursed into whole Piece objects via `Move.final.piece`). After 2.2 this function only runs on the real-move GUI path, so the gain is snappier GUI moves rather than search time. The now-unused `import copy` was removed from `board.py`.
 
 Because each `Move` holds `Square`s that reference `Piece` objects, `deepcopy` recursively copies whole pieces (texture paths, move lists) for every piece on every call. A shallow copy `piece.moves[:]` is sufficient here — the list is only saved and restored around the probe.
 
@@ -157,11 +159,15 @@ Console I/O executed inside the search loop:
 - `src/minimax.py:67-68` and `:98-99` — the `moves_analyzed % 1000` progress print (the modulo test itself runs per move)
 - `src/minimax.py:157` — `move.show(...)` per root move (keep if desired, it's root-level only)
 
-### 2.5. Fix depth plumbing — `src/minimax.py:38, 52, 83`
+### 2.5. Fix depth plumbing — `src/minimax.py:38, 52, 83` — ✅ FIXED
+
+> **Status: fixed.** `minimax()` now reads `self.max_depth` instead of the module constant `AI_MAX_DEPTH`, so `AI(max_depth=...)` finally works (verified: depth 1 searches 835 root+reply moves instead of the full 3-ply tree). The off-by-one semantics are documented at the constructor: `max_depth = N` analyzes N+1 plies (root move + N replies). `tests/benchmark_ai.py` no longer needs to patch the module global.
 
 `minimax()` compares against the module-level constant `AI_MAX_DEPTH` instead of `self.max_depth`, so the constructor parameter is silently ignored (used only in a printout at `:183`). Also note `depth > AI_MAX_DEPTH` with the root driver starting at `depth=1` means `AI_MAX_DEPTH = 2` actually searches 3 plies — worth renaming or documenting so future depth changes do what they say.
 
-### 2.6. Cheaper leaf evaluation — `src/board.py:482`
+### 2.6. Cheaper leaf evaluation — `src/board.py:482` — ✅ IMPLEMENTED
+
+> **Status: implemented** (minimal variant). `calculate_piece_score()` iterates `self.squares` directly instead of indexing through both board representations with an `is_piece` bitfield test per square. **Measured** (together with 2.3/2.5): depth 2 startpos 4.2→3.7 s, middlegame 7.5→6.6 s; depth 3 startpos 138→123 s, middlegame 239→226 s (identical `moves_analyzed` and chosen moves). The incremental-material variant (score maintained in `BoardState`, updated on capture/promotion) remains available as future work once alpha-beta changes the leaf/interior ratio.
 
 `calculate_piece_score()` rescans all 64 squares with an `is_piece` test and attribute lookups on every leaf. Minimal fix: iterate only occupied squares without the dual-array indirection. Better fix: maintain the material score **incrementally** in `BoardState`, updated on capture/promotion inside `move()` — leaf evaluation then becomes a single field read.
 
@@ -181,5 +187,6 @@ Console I/O executed inside the search loop:
 - **Perft test harness** — ✅ IMPLEMENTED as `tests/test_perft.py`: start position (20 / 400 / 8,902, plus 197,281 at depth 4 behind `CHESS_PERFT_DEEP=1` or `--deep`), "Kiwipete" (48 / 2,039, castling/pin heavy) and CPW position 3 (14 / 191 / 2,812, en passant/pin heavy), all driven through the same `move()` / `prepare_board_state_for_next_move()` / `undo_last_move()` path minimax uses. Runs in a few seconds by default; part of `pytest tests`. It found and led to fixing item 1.10 on its very first run.
 - **Timing benchmark** — ✅ IMPLEMENTED as `tests/benchmark_ai.py` (not a pytest test; run directly, optionally passing depths: `python .\tests\benchmark_ai.py 2 3`). Measures `best_move()` wall time and `moves_analyzed` at each depth from the start position and a Giuoco Piano middlegame. Baseline on this machine (2026-08-04, before performance work): startpos depth 2 = 8.0 s / 24,825 moves; middlegame depth 2 = 10.7 s / 37,139 moves; **startpos depth 3 = 311 s / 728,887 moves; middlegame depth 3 = 823 s / 1,272,509 moves**. These are the numbers the section 2 quick wins should be measured against.
   After item 2.2 (2026-08-04): startpos depth 2 = 4.2 s; middlegame depth 2 = 7.5 s; **startpos depth 3 = 138 s; middlegame depth 3 = 239 s** (identical `moves_analyzed` and chosen moves).
+  After items 2.3/2.5/2.6 (2026-08-04): startpos depth 2 = 3.7 s; middlegame depth 2 = 6.6 s; **startpos depth 3 = 123 s; middlegame depth 3 = 226 s** (identical `moves_analyzed` and chosen moves).
 - **Alpha-beta equivalence** — before deleting the plain-minimax path, assert the alpha-beta root score equals the plain minimax root score on several positions (pruning must never change the result, only the work).
 - **Manual sanity** — play a full game vs AI checking specifically: queenside castling works for both colors; castling is refused while in check or through an attacked square; en passant is only available on the immediately following move; no sliding piece ever moves through the enemy king.
