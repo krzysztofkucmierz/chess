@@ -34,7 +34,9 @@ def is_white(piece_data: int):
     return bool(piece_data & WHITE_PIECE_COLOR)
 
 def is_black(piece_data: int):
-    return bool(~(piece_data & WHITE_PIECE_COLOR))
+    # FIXED BUG: bool(~x) was always True (~0 == -1 and ~0x40 == -65, both truthy);
+    # the color bit must be tested with 'not'
+    return not bool(piece_data & WHITE_PIECE_COLOR)
 
 def has_team_piece(piece_data: int, color: int):
     if color == WHITE_PIECE_COLOR:

@@ -92,19 +92,25 @@ both calls return the same boolean, so the first branch always wins and **every 
 
 **Fix:** determine the mated side from `current_state.player_color` and score mates side-aware. Use finite, depth-adjusted mate scores (e.g. `±(100000 - ply)`) instead of `±inf` — this also makes the AI prefer faster mates and avoids clipping against the `-1000`/`1000` initial values of `best_score`.
 
-### 1.7. Stale `captured` flag inside the search — `src/board.py:246`, `:202`
+### 1.7. Stale `captured` flag inside the search — `src/board.py:246`, `:202` — ✅ FIXED
+
+> **Status: fixed.** `Board.move()` now inspects the destination square itself (before overwriting it) and sets `current_state.captured` for every real move; the `set_capturing_move_flag()` method and both external calls (GUI path and minimax root) were removed. En passant keeps its separate counting path (destination square is empty), unchanged. Verified by `tests/test_state_bugs.py` — a capture decrements the counters with no external call, and a deliberately poisoned stale flag no longer makes a quiet move decrement counters or stamp `last_move_when_piece_captured`; the old code reproducibly failed.
 
 `set_capturing_move_flag()` is called only from the GUI path (`src/main.py:230`) and once at the minimax root (`src/minimax.py:180`). Deeper in the search, `Board.move()` reads the stale `current_state.captured` value at `src/board.py:202` and may wrongly decrement `white_pieces_count`/`black_pieces_count` and stamp `last_move_when_piece_captured` for non-captures — corrupting insufficient-material and 50-move draw detection inside the search.
 
 **Fix:** set `current_state.captured` inside `Board.move()` itself by inspecting the destination square before mutating it, and remove the reliance on external callers.
 
-### 1.8. Pawn-check detection: negative-index wraparound — `src/board.py:396-407`
+### 1.8. Pawn-check detection: negative-index wraparound — `src/board.py:396-407` — ✅ FIXED
+
+> **Status: fixed.** Both guards in `is_king_checked()` now test `check_row` — the row actually indexed — instead of `row + 1`. This became reachable with the 1.9 fix (a probing pawn now really sits on row 0 during legality tests instead of being replaced by a Queen). Verified by `tests/test_state_bugs.py`: a white pawn on row 0 no longer "checks" a black king on row 7, and a genuine pawn check is still detected; the old code reproducibly failed.
 
 The bounds guard tests `Square.in_range(row + 1, col ± 1)` but the row actually indexed is `check_row = row - 1` for the black king. At `row == 0` the guard passes while `check_row == -1`, so `squares[-1]` silently wraps to row 7 and a pawn on the opposite edge of the board can be reported as giving check.
 
 **Fix:** guard with the row that is actually indexed (`check_row`), per color.
 
-### 1.9. Promotion runs during legality probes — `src/board.py:171-173`
+### 1.9. Promotion runs during legality probes — `src/board.py:171-173` — ✅ FIXED
+
+> **Status: fixed.** The promotion in `Board.move()` is now gated on `not test_check` — during a probe the pawn stays a pawn (it blocks enemy rays the same way a Queen would, so the check answer is identical). Verified by `tests/test_state_bugs.py` with a counting `Queen` subclass: `calc_moves()` on a 7th-rank pawn allocates zero Queens, a real promotion move allocates exactly one; the old code reproducibly failed. (The piece counters need no adjustment on promotion — they count pieces, and pawn→queen keeps the count unchanged.)
 
 The auto-queen promotion executes even when `test_check=True`, allocating a new `Queen` object for every legality probe of a 7th-rank pawn move. Additionally, piece counters are not adjusted on promotion.
 
@@ -114,7 +120,9 @@ The auto-queen promotion executes even when `test_check=True`, allocating a new 
 
 > **Found by the perft harness** (kiwipete perft(2) counted 1,995 instead of 2,039): `undo_moved()` restored only the King's `moved` flag, never the Rook's, and Piece objects are shared across board states. After any minimax line in which a castle was tried, that Rook kept `moved = True` forever — castling silently disappeared from the rest of the search **and from the real game** (the second root cause behind README Bug 5). Fixed by restoring the castling Rook's flag from the previous state's `squares_fast_method` in `undo_moved()`. Guarded by `tests/test_perft.py` (kiwipete).
 
-### 1.11. Latent: `Piece.is_black()` always returns `True` — `src/piece.py:36`
+### 1.11. Latent: `Piece.is_black()` always returns `True` — `src/piece.py:36` — ✅ FIXED
+
+> **Status: fixed.** `is_black()` now returns `not bool(piece_data & WHITE_PIECE_COLOR)` (matching the correct version that existed in `piece_representation.py`), so `has_team_piece` / `has_enemy_piece` / `isempty_or_enemy` in the int fast path give correct answers if the `# OPTIMIZATION` call sites are ever re-enabled. Verified by `tests/test_state_bugs.py` (color helper truth table); the old code reproducibly failed.
 
 ```python
 return bool(~(piece_data & WHITE_PIECE_COLOR))

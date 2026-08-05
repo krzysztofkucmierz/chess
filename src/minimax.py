@@ -189,9 +189,6 @@ class AI:
         self.best_score = best_score
 
         if best_move is not None:
-            # determine if the move was with capture and play appropriate sound
-            board.set_capturing_move_flag(best_move)
-
             board.move(best_piece, best_move)
             print(f"AI found a move after analyzing {self.moves_analyzed} moves (depth = {self.max_depth}). It's score is {best_score}.")
             return best_piece, best_move

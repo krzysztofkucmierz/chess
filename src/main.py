@@ -226,9 +226,6 @@ class Main:
                             if game.first_move_made == False:
                                 game.first_move_made = True
 
-                            # check if piece captured
-                            game.board_states[game.move_count].set_capturing_move_flag(move)
-
                             # move the piece
                             game.board_states[game.move_count].move(dragger.piece, move)
 

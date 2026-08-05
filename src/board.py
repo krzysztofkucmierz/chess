@@ -152,6 +152,11 @@ class Board:
         #en_passant_empty = self.squares[final.row][final.col].isempty()
         en_passant_empty = is_empty(self.squares_fast_method[final.row][final.col])  # optimization
         pawn_moved = isinstance(piece, Pawn)
+        # FIXED BUG (stale 'captured' flag): inspect the destination square here, before
+        # it is overwritten, instead of relying on external callers to pre-set
+        # current_state.captured (the GUI did, the minimax search never did - deep search
+        # nodes read a stale flag and corrupted the piece counters and draw detection)
+        destination_had_piece = self.squares[final.row][final.col].has_piece()
         # 1. adjust 'square' structure based on the move
 
         # standard board update for the 'move'
@@ -173,7 +178,11 @@ class Board:
                         sound.play()
 
             # Pawn promotion to a Queen
-            if (final.row == 7 or final.row == 0):
+            # FIXED BUG: don't promote during legality probes (test_check=True) - the pawn
+            # blocks enemy rays the same way a Queen would, so the "is my king in check"
+            # answer is unchanged, and the probe allocated a new Queen object for every
+            # legality test of a 7th-rank pawn move
+            if not test_check and (final.row == 7 or final.row == 0):
                 self.squares[final.row][final.col].piece = Queen(piece.color)
             
         # King castling - since King's move is coded above as standard move, now only move the Rook
@@ -207,6 +216,7 @@ class Board:
             self.current_state.move = move
             self.current_state.piece = piece
 
+            self.current_state.captured = destination_had_piece
             if self.current_state.captured:
                 self.update_pieces_count(piece.color) # update piece counter after capture
                 self.current_state.last_move_when_piece_captured = self.current_state.move_count # set this variable to 'move_count' after capture
@@ -256,11 +266,6 @@ class Board:
         if double_pawn_push:
             piece.en_passant = True
 
-    # set 'captured' flag by checking if destination square contained a piece 
-    def set_capturing_move_flag(self, move: Move):
-        self.current_state.captured = self.squares[move.final.row][move.final.col].has_piece()
-        
-    
     # verify if the move of the piece will uncover a check of King of the same color as the moved piece
     def in_check(self, piece: Piece, move: Move):
         king_checked = False
@@ -427,12 +432,15 @@ class Board:
                     if isinstance(piece, Pawn):
                         check_row = row + 1 if color == WHITE_PIECE_COLOR else row - 1
                         # check if King can be 'captured' by a pawn
-                        if Square.in_range(row+1, col+1):
+                        # FIXED BUG: the guard must test check_row (the row actually indexed),
+                        # not row+1 - for the black king check_row is row-1, and at row == 0
+                        # squares[-1] silently wrapped around to row 7
+                        if Square.in_range(check_row, col+1):
                             if isinstance(self.squares[check_row][col+1].piece, King):
                                 if self.squares[check_row][col+1].has_team_piece(color):
                                     #print(f"Pawn on {Square.get_alphacol(col)}{ROWS - row} is checking the {color} King!")
                                     return True
-                        if Square.in_range(row+1, col-1):
+                        if Square.in_range(check_row, col-1):
                             if isinstance(self.squares[check_row][col-1].piece, King): 
                                 if self.squares[check_row][col-1].has_team_piece(color):  
                                     #print(f"Pawn on {Square.get_alphacol(col)}{ROWS - row} is checking the {color} King!")
