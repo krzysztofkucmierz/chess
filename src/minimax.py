@@ -12,13 +12,38 @@ class AI:
     # max_depth semantics: best_move() plays ply 1 itself and calls minimax() with depth=1;
     # recursion stops when depth > max_depth, so max_depth = N means the AI analyzes
     # N+1 plies in total (e.g. max_depth = 2 predicts 3 piece moves ahead)
-    def __init__(self, max_depth = AI_MAX_DEPTH):
+    # pruning=False disables the alpha-beta cutoff (plain minimax), kept only so tests
+    # can assert that pruning never changes the root score
+    def __init__(self, max_depth = AI_MAX_DEPTH, pruning = True):
         self.max_depth = max_depth
+        self.pruning = pruning
         self.moves_analyzed = 0
+        self.best_score = None  # root score of the last best_move() search
         self.visual_mode = False
 
-    # returns score of the current node in a minimax tree
-    def minimax(self, game_state: Game, screen, depth: int = 0, is_maximizing: bool = True) -> float:
+    # all legal moves of 'color' as (piece, move) pairs, captures first (highest
+    # captured-piece value first) - good ordering is what makes alpha-beta cut
+    def collect_ordered_moves(self, board, color: int) -> list:
+        legal_moves = []
+        for row in range(ROWS):
+            for col in range(COLS):
+                if board.squares[row][col].has_team_piece(color):
+                    current_piece = board.squares[row][col].piece
+                    current_piece.clear_moves()
+                    board.calc_moves(current_piece, row, col)
+                    for move in current_piece.moves:
+                        legal_moves.append((current_piece, move))
+        # piece.value is signed by color, so order by absolute value; non-captures
+        # (empty destination) get key 0 and stay behind all captures
+        legal_moves.sort(key = lambda pair:
+                         -abs(pair[1].final.piece.value) if pair[1].final.piece else 0.0)
+        return legal_moves
+
+    # returns score of the current node in a minimax tree; [alpha, beta] is the
+    # window of scores still relevant to the ancestors - branches proven outside
+    # it are cut off (pure optimization, never changes the root result)
+    def minimax(self, game_state: Game, screen, depth: int = 0, is_maximizing: bool = True,
+                alpha: float = float('-inf'), beta: float = float('inf')) -> float:
 
         if self.visual_mode:
             game_state.show_bg(screen)
@@ -55,68 +80,47 @@ class AI:
         # over at this node - checkmate if the king is in check, stalemate otherwise.
         # OPTIMIZATION: this replaces the player_has_no_valid_moves() scan formerly done
         # inside Board.move() for every single node of the search tree.
-        legal_moves = []
-        for row in range(ROWS):
-            for col in range(COLS):
-                if board.squares[row][col].has_team_piece(current_player):
-                    current_piece = board.squares[row][col].piece
-                    current_piece.clear_moves()
-                    board.calc_moves(current_piece, row, col)
-                    for move in current_piece.moves:
-                        legal_moves.append((current_piece, move))
+        legal_moves = self.collect_ordered_moves(board, current_player)
 
         if not legal_moves:
             if board.is_king_checked(current_player):
                 return mated_score
             return 0  # stalemate
 
-        if is_maximizing:
-            best_score = float('-inf')
+        best_score = float('-inf') if is_maximizing else float('inf')
 
-            for current_piece, move in legal_moves:
-                if depth == self.max_depth:
-                    self.moves_analyzed += 1
+        for current_piece, move in legal_moves:
+            if depth == self.max_depth:
+                self.moves_analyzed += 1
 
-                board.move(current_piece, move, test_check = False, clear_moves = False, ai_minimax=True)
-                game_state.prepare_board_state_for_next_move()
+            board.move(current_piece, move, test_check = False, clear_moves = False, ai_minimax=True)
+            game_state.prepare_board_state_for_next_move()
 
-                # - recursively invoke minimax function for the move until 'max_depth' depth is reached
-                score = self.minimax(game_state, screen, depth + 1, is_maximizing = False)
+            # - recursively invoke minimax function for the move until 'max_depth' depth is reached
+            score = self.minimax(game_state, screen, depth + 1, not is_maximizing, alpha, beta)
 
-                # - revert to original player and board position
-                game_state.undo_last_move()
+            # - revert to original player and board position
+            game_state.undo_last_move()
 
-                # - calculate current best score based on score received from minimax
+            # - calculate current best score based on score received from minimax
+            # and narrow the alpha-beta window with it
+            if is_maximizing:
                 best_score = max(best_score, score)
-
-                if self.moves_analyzed % 1000 == 0:
-                    print(f"Analyzed {self.moves_analyzed} moves...")
-
-            return best_score
-
-        else: # if is minimizing
-            best_score = float('inf')
-
-            for current_piece, move in legal_moves:
-                if depth == self.max_depth:
-                    self.moves_analyzed += 1
-
-                board.move(current_piece, move, test_check = False, clear_moves = False, ai_minimax=True)
-                game_state.prepare_board_state_for_next_move()
-
-                # - recursively invoke minimax function for the move until 'max_depth' depth is reached
-                score = self.minimax(game_state, screen, depth + 1, is_maximizing = True)
-
-                # - revert to original player and board position
-                game_state.undo_last_move()
-
-                # - calculate current best score based on score received from minimax
+                alpha = max(alpha, best_score)
+            else:
                 best_score = min(best_score, score)
+                beta = min(beta, best_score)
 
-                if self.moves_analyzed % 1000 == 0:
-                    print(f"Analyzed {self.moves_analyzed} moves...")
+            if self.moves_analyzed % 1000 == 0:
+                print(f"Analyzed {self.moves_analyzed} moves...")
 
-            return best_score
+            # alpha-beta cutoff: the opponent already has a better option earlier
+            # in the tree, so no ancestor will ever let the game reach this node -
+            # the remaining sibling moves cannot influence the root decision
+            if self.pruning and beta <= alpha:
+                break
+
+        return best_score
 
     # function for debugging
     def show_all_possible_moves(self, game_state: Game) -> None:
@@ -147,51 +151,42 @@ class AI:
             best_score = 1000
 
         board = game_state.board_states[game_state.move_count]
-        
-        # test each valid move in current position            
-        for row in range(ROWS):
-            for col in range(COLS):
+        maximizing = game_state.current_player == WHITE_PIECE_COLOR
 
-                if board.squares[row][col].has_team_piece(game_state.current_player):
-                    current_piece = board.squares[row][col].piece
-                    current_piece.clear_moves()
-                    board.calc_moves(current_piece, row, col)
-                    for move in current_piece.moves:
-                        moves_analyzed_so_far = self.moves_analyzed
+        # test each valid move in current position, best captures first so that the
+        # alpha-beta window narrows as early as possible
+        for current_piece, move in self.collect_ordered_moves(board, game_state.current_player):
+            moves_analyzed_so_far = self.moves_analyzed
 
-                        board.move(current_piece, move, test_check = False, clear_moves = False, ai_minimax=True)
+            board.move(current_piece, move, test_check = False, clear_moves = False, ai_minimax=True)
+            game_state.prepare_board_state_for_next_move()
 
-                        # - recursively invoke minimax function for the move until 'max_depth' depth is reached
-                        # invoke minimax method at depth=1 because best_move() method covers moves at depth=0
-                        if game_state.current_player == WHITE_PIECE_COLOR:
-                            game_state.prepare_board_state_for_next_move()
-                            score = self.minimax(game_state, screen, 1, is_maximizing = False) 
-                        else:
-                            game_state.prepare_board_state_for_next_move()
-                            score = self.minimax(game_state, screen, 1, is_maximizing = True)
+            # - recursively invoke minimax function for the move until 'max_depth' depth is reached
+            # invoke minimax method at depth=1 because best_move() method covers moves at depth=0.
+            # best_score is the root alpha (white) / beta (black): a reply line proven
+            # worse than the best move found so far is cut off, which can only affect
+            # scores of moves that would not be chosen anyway
+            if maximizing:
+                score = self.minimax(game_state, screen, 1, is_maximizing = False,
+                                     alpha = best_score, beta = float('inf'))
+            else:
+                score = self.minimax(game_state, screen, 1, is_maximizing = True,
+                                     alpha = float('-inf'), beta = best_score)
 
-                        game_state.undo_last_move()
-                        comment = f"Calculated score {score} for move based on {self.moves_analyzed-moves_analyzed_so_far} moves."
-                        move.show(current_piece.name, comment)
-                                              
-                        # if found score is lower, set it as best_score
-                        if game_state.current_player == WHITE_PIECE_COLOR:
-                            if score > best_score:
-                                best_score = score
-                                best_move = move
-                                best_piece = current_piece
-                                comment = f"Found new best move: {best_score}"
-                                best_move.show(best_piece.name, comment)
-                        else:
-                            if score < best_score:
-                                best_score = score
-                                best_move = move
-                                best_piece = current_piece
-                                comment = f"Found new best move: {best_score}"
-                                best_move.show(best_piece.name, comment)
+            # - revert to original player and board position
+            game_state.undo_last_move()
+            comment = f"Calculated score {score} for move based on {self.moves_analyzed-moves_analyzed_so_far} moves."
+            move.show(current_piece.name, comment)
 
-                        # - revert to original player and board position
+            # if found score is better for the root player, set it as best_score
+            if (score > best_score) if maximizing else (score < best_score):
+                best_score = score
+                best_move = move
+                best_piece = current_piece
+                comment = f"Found new best move: {best_score}"
+                best_move.show(best_piece.name, comment)
 
+        self.best_score = best_score
 
         if best_move is not None:
             # determine if the move was with capture and play appropriate sound
