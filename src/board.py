@@ -45,9 +45,10 @@ class Board:
         self._add_pieces(WHITE_PIECE_COLOR)
         self._add_pieces(BLACK_PIECE_COLOR)
 
-    # TODO: change it to squares_fast_method instead using squares?
     # Check if two boards are equal. This means there is identical position on both boards.
-    # This method is needed to implement 3 fold repetition rule.
+    # NOTE: the 3 fold repetition rule does NOT use this - it compares Game.position_key()
+    # tuples built from squares_fast_method (piece name/color equality here ignores
+    # castling rights, en passant state and the side to move).
     # Returns:
     #   True if position on both boards is identical
     #   False otherwise

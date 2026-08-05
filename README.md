@@ -82,7 +82,7 @@ NOTE: A detailed, prioritized list of further correctness fixes and performance 
  IMPLEMENTED:   Feature 2. Detect checkmate position.  
  IMPLEMENTED:   Feature 3. Detect stalemate position.  
  IMPLEMENTED:   Feature 4. Detect draw position in case of: position on the board repeated 3 times OR both players don't have enough material to win OR 50 moves made without capturing a piece and no pawn move. See details on: https://en.wikipedia.org/wiki/Draw_%28chess%29#Draws_in_all_games 
- NOTE: Currently 3 fold repetition is turned off.  
+ NOTE: 3 fold repetition detection was rewritten (the old method was disabled dead code) - it now follows FIDE article 9.2: same placement, same side to move, same castling rights, same en passant state. Covered by regression tests in tests/test_three_fold_repetition.py.  
  IMPLEMENTED:   Feature 5. Storing and displaying list of all moves made from the start of the game. (press 'd' key)  
  IMPLEMENTED:   Feature 6. Undo move. Implemented ONLY for player vs player mode. (press 'u' key)  
  IMPLEMENTED:   Feature 7. Implement simplest Player vs Computer AI using simple minimax algorithm.  

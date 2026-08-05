@@ -18,8 +18,14 @@ class Game:
         self.first_move_made = False
         self.current_player: int = WHITE_PIECE_COLOR
         self.board_states: List[Board] = [Board() for _ in range(300)]
-        self.moves_history: List[Tuple[Piece, Move]] = [] # this list records all game moves (a single sequence of all white and black moves as they were played)         
+        self.moves_history: List[Tuple[Piece, Move]] = [] # this list records all game moves (a single sequence of all white and black moves as they were played)
         self.three_fold_repetition_detected: bool = False # flag indicating three fold repetition on board
+        # snapshot the starting position for the repetition rule - board_states[0] is
+        # mutated in place by the first move, so its key must be taken now; BLACK as
+        # pseudo-mover marks "white to move", consistent with finalized state keys
+        self.board_states[0].dump_to_squares_fast_method()
+        placement, _, rights = self.position_key(0)
+        self.initial_position_key = (placement, BLACK_PIECE_COLOR, rights)
 
         self.stopAI = False
         self.game_message: str = ""
@@ -167,20 +173,65 @@ class Game:
         print(f"Game.move_count: {self.move_count}.")
 
 
-    # TODO: Ths method needs redesign - it should work with a new boards list containing all history moves
-    # NEW METHOD!
-    # Detects three fold repetition of positions which results in a game draw
-    # Sets three_fold_repetition_detected menber variable to True if detected
-    def check_three_fold_repetition(self):
-        return False
-        if len(self.last_n_board_positions) < 9:
-            print(f"Attempting to check three fold repetition rule but the list has only {len(self.last_n_board_positions)} boards! It should contain 9.")
-        elif self.last_n_board_positions[8] == self.last_n_board_positions[4] and self.last_n_board_positions[4] == self.last_n_board_positions[0]:
-            print(f"Three fold repetition detected on moves number: {self.last_n_board_positions[0].move_count}, {self.last_n_board_positions[4].move_count}, {self.last_n_board_positions[8].move_count}")
+    # Hashable identity of the position stored in board_states[index], for the
+    # three fold repetition rule (FIDE article 9.2): piece placement (type + color +
+    # en passant flag), the color recorded in the state, and the actual castling rights.
+    # Built from squares_fast_method - the Piece objects in 'squares' are shared between
+    # board states, so only the int encoding preserves historical moved/en-passant flags.
+    # The PIECE_MOVED bit is masked out of the placement (a knight that returned to its
+    # start square recreates the same position even though its flag changed) and re-enters
+    # only through the castling rights of the four king/rook home squares.
+    def position_key(self, index: int) -> tuple:
+        fast = self.board_states[index].squares_fast_method
+
+        def castling_right(king_row, rook_col):
+            return (fast[king_row][4] & (KING_PIECE | PIECE_MOVED)) == KING_PIECE \
+               and (fast[king_row][rook_col] & (ROOK_PIECE | PIECE_MOVED)) == ROOK_PIECE
+
+        placement = tuple(square & (ANY_PIECE | WHITE_PIECE_COLOR | EN_PASSANT_PAWN)
+                          for row in fast for square in row)
+        rights = (castling_right(7, 0), castling_right(7, 7),
+                  castling_right(0, 0), castling_right(0, 7))
+        return (placement, self.board_states[index].current_state.player_color, rights)
+
+    # Returns True if the current position has occurred at least 3 times in the game
+    # (draw by three fold repetition, FIDE article 9.2). Sets three_fold_repetition_detected.
+    #
+    # How the history is stored: Board.move() mutates board_states[i] in place, so a
+    # finalized state i holds the position AFTER ply i+1 with player_color = the color
+    # that made that ply - a consistent "last mover" marking across all finalized states,
+    # which position_key() can compare directly. Two consequences handled here:
+    # - the initial position's snapshot is overwritten by ply 1, so it is kept separately
+    #   as initial_position_key (with BLACK as pseudo-mover: white to move);
+    # - right after prepare_board_state_for_next_move() the state at move_count is a
+    #   fresh copy of move_count-1 (identical placement, toggled color); a real move
+    #   always changes the placement, so equal neighbouring placements reliably identify
+    #   that timing and the duplicate is skipped.
+    def check_three_fold_repetition(self) -> bool:
+        last = self.move_count
+        if last >= 1 and (self.board_states[last].squares_fast_method
+                          == self.board_states[last - 1].squares_fast_method):
+            last -= 1  # called after prepare - board_states[move_count] is a duplicate
+
+        current_key = self.position_key(last)
+        repetitions = 1 if current_key == self.initial_position_key else 0
+
+        # positions from before the last irreversible move (pawn move or capture) can
+        # never recur - scanning from its stamp is a pure optimization, as a position
+        # older than that can never equal the current placement anyway
+        state = self.board_states[last].current_state
+        first_possible = max(state.last_move_when_pawn_moved,
+                             state.last_move_when_piece_captured)
+        repetitions += sum(1 for i in range(first_possible, last + 1)
+                           if self.position_key(i) == current_key)
+
+        if repetitions >= 3:
+            print(f"Three fold repetition detected: the current position "
+                  f"has occurred {repetitions} times.")
             self.three_fold_repetition_detected = True
-            return
-        # print(f"Three fold repetition NOT detected on moves no =  {self.last_n_board_positions[0].move_count}, {self.last_n_board_positions[4].move_count},  {self.last_n_board_positions[8].move_count}")
-        
+            return True
+        return False
+
     # Returns True if game has reached 50 move rule which leads to game draw. 
     # NOTE. Using > comparison as move count is increased before checking this rule
     def check_fifty_move_rule(self, limit_moves_count: int = 50) -> bool:
@@ -210,10 +261,9 @@ class Game:
             self.game_message += "Press 'r' to restart or close the app window to quit." 
             return True
         elif self.check_three_fold_repetition():
-            if self.three_fold_repetition_detected:
-                self.game_message = "Draw. Reason: three fold repetition of the position. "
-                self.game_message += "Press 'r' to restart or close the app window to quit."
-                return True
+            self.game_message = "Draw. Reason: three fold repetition of the position. "
+            self.game_message += "Press 'r' to restart or close the app window to quit."
+            return True
         elif self.board_states[self.move_count].check_insufficient_mating_material():
             self.game_message = "Draw. Reason: insufficient material. "
             self.game_message += "Press 'r' to restart or close the app window to quit."            
