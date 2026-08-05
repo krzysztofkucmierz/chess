@@ -1,1 +1,8 @@
+# core app (python .\src\main.py)
 pygame==2.6.1
+
+# test suite (python -m pytest tests)
+pytest==9.0.2
+
+# tools/elo_estimate.py - Elo rating estimation vs Stockfish
+chess==1.11.2
