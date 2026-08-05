@@ -8,7 +8,7 @@ COLS = 8
 SQSIZE = WIDTH // COLS
 
 # AI constants
-AI_MAX_DEPTH = 2
+AI_MAX_DEPTH = 3
 # base score of a checkmate found by minimax; the depth at which the mate occurs is
 # subtracted from it so that faster mates score higher (must exceed any material score)
 MATE_SCORE = 100000
